@@ -118,7 +118,7 @@ func TestFinalizePullRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			finalizePullRequest(&tt.pr, tt.events, tt.requiredChecks, tt.testStateFromAPI)
+			FinalizePullRequest(&tt.pr, tt.events, tt.requiredChecks, tt.testStateFromAPI)
 
 			if tt.pr.TestState != tt.wantTestState {
 				t.Errorf("TestState = %v, want %v", tt.pr.TestState, tt.wantTestState)
@@ -194,7 +194,7 @@ func TestFixTestState(t *testing.T) {
 			pr := &PullRequest{
 				CheckSummary: tt.checkSummary,
 			}
-			fixTestState(pr)
+			FixTestState(pr)
 			if pr.TestState != tt.wantTestState {
 				t.Errorf("TestState = %v, want %v", pr.TestState, tt.wantTestState)
 			}

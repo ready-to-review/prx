@@ -1,4 +1,4 @@
-package prx
+package github
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/codeGROOVE-dev/fido"
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 func TestIsBot(t *testing.T) {
@@ -150,10 +151,14 @@ func TestConvertGraphQLReviewCommentsWithOutdated(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
+	platform := &Platform{
 		logger:             slog.Default(),
 		collaboratorsCache: fido.New[string, map[string]string](fido.TTL(collaboratorsCacheTTL)),
-		github:             newTestGitHubClient(&http.Client{}, "test-token", server.URL),
+		client: &Client{
+			HTTPClient: &http.Client{},
+			Token:      "test-token",
+			BaseURL:    server.URL,
+		},
 	}
 	ctx := context.Background()
 
@@ -266,10 +271,10 @@ func TestConvertGraphQLReviewCommentsWithOutdated(t *testing.T) {
 	}
 
 	// Convert GraphQL data to events
-	events := client.convertGraphQLToEventsComplete(ctx, data, "testowner", "testrepo")
+	events := platform.convertGraphQLToEventsComplete(ctx, data, "testowner", "testrepo")
 
 	// Filter to only review_comment events
-	var reviewComments []Event
+	var reviewComments []prx.Event
 	for _, event := range events {
 		if event.Kind == "review_comment" {
 			reviewComments = append(reviewComments, event)

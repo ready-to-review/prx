@@ -1,4 +1,4 @@
-package prx
+package github
 
 // completeGraphQLQuery is the GraphQL query that fetches all PR data.
 // This replaces 13+ REST API calls with a single comprehensive query.

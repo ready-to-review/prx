@@ -1,4 +1,4 @@
-package prx
+package github
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
+
 	"github.com/codeGROOVE-dev/fido"
 )
 
@@ -20,7 +22,7 @@ func TestGraphQLParity(t *testing.T) {
 	t.Skip("Requires real GitHub API access for full parity testing")
 
 	ctx := context.Background()
-	client := &Client{} // Would need proper initialization
+	platform := &Platform{} // Would need proper initialization
 	refTime := time.Now()
 
 	// Test data
@@ -29,13 +31,13 @@ func TestGraphQLParity(t *testing.T) {
 	prNumber := 1
 
 	// Fetch via direct call (non-cached)
-	restData, err := client.pullRequestViaGraphQL(ctx, owner, repo, prNumber, refTime)
+	restData, err := platform.FetchPR(ctx, owner, repo, prNumber, refTime)
 	if err != nil {
 		t.Fatalf("Direct fetch failed: %v", err)
 	}
 
 	// Fetch via GraphQL
-	graphqlData, err := client.pullRequestViaGraphQL(ctx, owner, repo, prNumber, refTime)
+	graphqlData, err := platform.FetchPR(ctx, owner, repo, prNumber, refTime)
 	if err != nil {
 		t.Fatalf("GraphQL fetch failed: %v", err)
 	}
@@ -45,7 +47,7 @@ func TestGraphQLParity(t *testing.T) {
 }
 
 // comparePullRequestData compares REST and GraphQL results
-func comparePullRequestData(t *testing.T, rest, graphql *PullRequestData) {
+func comparePullRequestData(t *testing.T, rest, graphql *prx.PullRequestData) {
 	t.Helper()
 	// Compare PullRequest fields
 	pr1 := rest.PullRequest
@@ -89,7 +91,7 @@ func comparePullRequestData(t *testing.T, rest, graphql *PullRequestData) {
 }
 
 // countEventsByType counts events by their Kind
-func countEventsByType(events []Event) map[string]int {
+func countEventsByType(events []prx.Event) map[string]int {
 	counts := make(map[string]int)
 	for i := range events {
 		counts[events[i].Kind]++
@@ -98,7 +100,7 @@ func countEventsByType(events []Event) map[string]int {
 }
 
 // compareEvents compares event details
-func compareEvents(t *testing.T, restEvents, graphqlEvents []Event) {
+func compareEvents(t *testing.T, restEvents, graphqlEvents []prx.Event) {
 	t.Helper()
 	// Sort events by timestamp and kind for comparison
 	sort.Slice(restEvents, func(i, j int) bool {
@@ -128,7 +130,7 @@ func compareEvents(t *testing.T, restEvents, graphqlEvents []Event) {
 		}
 
 		// For events with write access, ensure it's preserved
-		if rest.WriteAccess != WriteAccessNA && graphql.WriteAccess == WriteAccessNA {
+		if rest.WriteAccess != prx.WriteAccessNA && graphql.WriteAccess == prx.WriteAccessNA {
 			t.Errorf("WriteAccess lost for event %s by %s: REST=%d, GraphQL=%d",
 				rest.Kind, rest.Actor, rest.WriteAccess, graphql.WriteAccess)
 		}
@@ -265,29 +267,29 @@ func TestWriteAccessMapping(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := &Client{
+	p := &Platform{
 		logger:             slog.Default(),
 		collaboratorsCache: fido.New[string, map[string]string](fido.TTL(collaboratorsCacheTTL)),
-		github:             newTestGitHubClient(&http.Client{}, "test-token", server.URL),
+		client:             &Client{HTTPClient: &http.Client{}, Token: "test-token", BaseURL: server.URL},
 	}
 
 	tests := []struct {
 		association string
 		expected    int
 	}{
-		{"OWNER", WriteAccessDefinitely},
-		{"COLLABORATOR", WriteAccessDefinitely},
-		{"MEMBER", WriteAccessLikely}, // Falls back to likely when collaborators API unavailable
-		{"CONTRIBUTOR", WriteAccessUnlikely},
-		{"NONE", WriteAccessUnlikely},
-		{"FIRST_TIME_CONTRIBUTOR", WriteAccessUnlikely},
-		{"FIRST_TIMER", WriteAccessUnlikely},
-		{"UNKNOWN", WriteAccessNA},
+		{"OWNER", prx.WriteAccessDefinitely},
+		{"COLLABORATOR", prx.WriteAccessDefinitely},
+		{"MEMBER", prx.WriteAccessLikely}, // Falls back to likely when collaborators API unavailable
+		{"CONTRIBUTOR", prx.WriteAccessUnlikely},
+		{"NONE", prx.WriteAccessUnlikely},
+		{"FIRST_TIME_CONTRIBUTOR", prx.WriteAccessUnlikely},
+		{"FIRST_TIMER", prx.WriteAccessUnlikely},
+		{"UNKNOWN", prx.WriteAccessNA},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.association, func(t *testing.T) {
-			result := c.writeAccessFromAssociation(ctx, "owner", "repo", "user", tt.association)
+			result := p.writeAccessFromAssociation(ctx, "owner", "repo", "user", tt.association)
 			if result != tt.expected {
 				t.Errorf("writeAccessFromAssociation(%s) = %d, want %d",
 					tt.association, result, tt.expected)
@@ -328,8 +330,8 @@ func TestRequiredChecksExtraction(t *testing.T) {
 		},
 	}
 
-	c := &Client{}
-	checks := c.extractRequiredChecksFromGraphQL(data)
+	p := &Platform{}
+	checks := p.extractRequiredChecksFromGraphQL(data)
 
 	// Should deduplicate and contain all unique checks
 	expectedChecks := map[string]bool{

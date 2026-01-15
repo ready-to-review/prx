@@ -1,4 +1,4 @@
-package prx
+package github
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 // TestAutoMergeEventIntegration tests that we properly parse auto_merge_enabled
@@ -17,7 +19,7 @@ func TestAutoMergeEventIntegration(t *testing.T) {
 		t.Fatalf("Failed to read test data: %v", err)
 	}
 
-	var prData PullRequestData
+	var prData prx.PullRequestData
 	if err := json.Unmarshal(data, &prData); err != nil {
 		t.Fatalf("Failed to unmarshal test data: %v", err)
 	}
@@ -28,7 +30,7 @@ func TestAutoMergeEventIntegration(t *testing.T) {
 	}
 
 	// Find the auto_merge_enabled event
-	var autoMergeEvent *Event
+	var autoMergeEvent *prx.Event
 	for i := range prData.Events {
 		if prData.Events[i].Kind == "auto_merge_enabled" {
 			autoMergeEvent = &prData.Events[i]
@@ -95,7 +97,7 @@ func TestAutoMergeEventIntegration(t *testing.T) {
 
 // TestParseGraphQLTimelineEventAutoMerge tests parsing of auto-merge events
 func TestParseGraphQLTimelineEventAutoMerge(t *testing.T) {
-	c := &Client{}
+	p := &Platform{}
 
 	tests := []struct {
 		name     string
@@ -130,7 +132,7 @@ func TestParseGraphQLTimelineEventAutoMerge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := c.parseGraphQLTimelineEvent(context.TODO(), tt.item, "owner", "repo")
+			event := p.parseGraphQLTimelineEvent(context.TODO(), tt.item, "owner", "repo")
 			if event == nil {
 				t.Fatal("Expected event, got nil")
 			}
@@ -146,7 +148,7 @@ func TestParseGraphQLTimelineEventAutoMerge(t *testing.T) {
 
 // TestParseGraphQLTimelineEventNewTypes tests parsing of all newly added event types
 func TestParseGraphQLTimelineEventNewTypes(t *testing.T) {
-	c := &Client{}
+	p := &Platform{}
 
 	tests := []struct {
 		typename string
@@ -190,7 +192,7 @@ func TestParseGraphQLTimelineEventNewTypes(t *testing.T) {
 				},
 			}
 
-			event := c.parseGraphQLTimelineEvent(context.TODO(), item, "owner", "repo")
+			event := p.parseGraphQLTimelineEvent(context.TODO(), item, "owner", "repo")
 			if event == nil {
 				t.Fatalf("Expected event for %s, got nil", tt.typename)
 			}
@@ -203,7 +205,7 @@ func TestParseGraphQLTimelineEventNewTypes(t *testing.T) {
 
 // TestParseGraphQLTimelineEventRenamedTitle tests that renamed title events include title info
 func TestParseGraphQLTimelineEventRenamedTitle(t *testing.T) {
-	c := &Client{}
+	p := &Platform{}
 
 	item := map[string]any{
 		"__typename":    "RenamedTitleEvent",
@@ -216,7 +218,7 @@ func TestParseGraphQLTimelineEventRenamedTitle(t *testing.T) {
 		},
 	}
 
-	event := c.parseGraphQLTimelineEvent(context.TODO(), item, "owner", "repo")
+	event := p.parseGraphQLTimelineEvent(context.TODO(), item, "owner", "repo")
 	if event == nil {
 		t.Fatal("Expected event, got nil")
 	}
@@ -233,7 +235,7 @@ func TestParseGraphQLTimelineEventRenamedTitle(t *testing.T) {
 
 // TestParseGraphQLTimelineEventReviewDismissed tests that review dismissed events include message
 func TestParseGraphQLTimelineEventReviewDismissed(t *testing.T) {
-	c := &Client{}
+	p := &Platform{}
 
 	item := map[string]any{
 		"__typename":       "ReviewDismissedEvent",
@@ -245,7 +247,7 @@ func TestParseGraphQLTimelineEventReviewDismissed(t *testing.T) {
 		},
 	}
 
-	event := c.parseGraphQLTimelineEvent(context.TODO(), item, "owner", "repo")
+	event := p.parseGraphQLTimelineEvent(context.TODO(), item, "owner", "repo")
 	if event == nil {
 		t.Fatal("Expected event, got nil")
 	}

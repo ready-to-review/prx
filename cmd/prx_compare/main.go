@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 )
 
 const (
@@ -38,7 +39,7 @@ func main() {
 
 	// Both now use GraphQL, but we'll compare two fetches to ensure consistency
 	fmt.Println("Fetching first time...")
-	restClient := prx.NewClient(token)
+	restClient := prx.NewClientWithPlatform(github.NewPlatform(token))
 	restData, err := restClient.PullRequest(context.TODO(), owner, repo, prNumber)
 	if err != nil {
 		log.Fatalf("First fetch failed: %v", err)
@@ -46,7 +47,7 @@ func main() {
 
 	// Fetch again to compare consistency
 	fmt.Println("Fetching second time...")
-	graphqlClient := prx.NewClient(token)
+	graphqlClient := prx.NewClientWithPlatform(github.NewPlatform(token))
 	graphqlData, err := graphqlClient.PullRequest(context.TODO(), owner, repo, prNumber)
 	if err != nil {
 		log.Fatalf("Second fetch failed: %v", err)

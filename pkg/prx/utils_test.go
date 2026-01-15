@@ -181,7 +181,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			summary := calculateCheckSummary(tt.events, tt.requiredChecks)
+			summary := CalculateCheckSummary(tt.events, tt.requiredChecks)
 
 			if !reflect.DeepEqual(summary.Success, tt.expectedSuccess) {
 				t.Errorf("Success mismatch\ngot:  %v\nwant: %v", summary.Success, tt.expectedSuccess)
@@ -210,7 +210,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 
 func TestCheckSummaryInitialization(t *testing.T) {
 	// Test that maps are properly initialized even with no events
-	summary := calculateCheckSummary([]Event{}, []string{})
+	summary := CalculateCheckSummary([]Event{}, []string{})
 
 	if summary.Success == nil {
 		t.Error("Success map should be initialized, not nil")
@@ -402,7 +402,7 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			summary := calculateApprovalSummary(tt.events)
+			summary := CalculateApprovalSummary(tt.events)
 
 			if summary.ApprovalsWithWriteAccess != tt.expectedWithAccess {
 				t.Errorf("ApprovalsWithWriteAccess: got %d, want %d",
@@ -458,7 +458,7 @@ func TestCheckSummaryCancelledNotInFailing(t *testing.T) {
 		},
 	}
 
-	summary := calculateCheckSummary(events, []string{})
+	summary := CalculateCheckSummary(events, []string{})
 
 	// Verify cancelled check is ONLY in cancelled map
 	if _, exists := summary.Cancelled["Test (macos-latest)"]; !exists {

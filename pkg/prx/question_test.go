@@ -367,9 +367,9 @@ func TestContainsQuestion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := containsQuestion(tt.input)
+			result := ContainsQuestion(tt.input)
 			if result != tt.expected {
-				t.Errorf("containsQuestion(%q) = %v, want %v", tt.input, result, tt.expected)
+				t.Errorf("ContainsQuestion(%q) = %v, want %v", tt.input, result, tt.expected)
 			}
 		})
 	}
@@ -387,7 +387,7 @@ func BenchmarkContainsQuestion(b *testing.B) {
 
 	for b.Loop() {
 		for _, tc := range testCases {
-			_ = containsQuestion(tc)
+			_ = ContainsQuestion(tc)
 		}
 	}
 }

@@ -120,10 +120,10 @@ func initQuestionRegexes() {
 	}
 }
 
-// containsQuestion determines if text contains a question based on:
+// ContainsQuestion determines if text contains a question based on:
 // 1. Presence of a question mark
 // 2. Common question patterns with proper word boundaries.
-func containsQuestion(text string) bool {
+func ContainsQuestion(text string) bool {
 	// Quick check for question mark
 	if strings.Contains(text, "?") {
 		return true
@@ -158,7 +158,8 @@ func isHexString(s string) bool {
 	return true
 }
 
-func truncate(s string) string {
+// Truncate returns the first maxTruncateLength characters of s.
+func Truncate(s string) string {
 	if len(s) <= maxTruncateLength {
 		return s
 	}

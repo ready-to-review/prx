@@ -153,7 +153,7 @@ func TestUpgradeWriteAccess(t *testing.T) {
 			copy(events, tt.events)
 
 			// Apply the upgrade function
-			upgradeWriteAccess(events)
+			UpgradeWriteAccess(events)
 
 			// Check results - look for events with WriteAccess field
 			for _, event := range events {

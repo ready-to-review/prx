@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 )
 
 func Example() {
@@ -16,7 +17,7 @@ func Example() {
 		log.Fatal("GITHUB_TOKEN environment variable not set")
 	}
 
-	client := prx.NewClient(token)
+	client := prx.NewClientWithPlatform(github.NewPlatform(token))
 
 	// Fetch events for a pull request
 	ctx := context.Background()
@@ -44,7 +45,7 @@ func Example() {
 func ExampleClient_PullRequest() {
 	// Create a client with custom logger
 	token := os.Getenv("GITHUB_TOKEN")
-	client := prx.NewClient(token)
+	client := prx.NewClientWithPlatform(github.NewPlatform(token))
 
 	// Fetch all events for PR #123
 	ctx := context.Background()

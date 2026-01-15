@@ -1,5 +1,5 @@
 //nolint:errcheck,gocritic // Test handlers don't need to check w.Write errors; if-else chains are fine for URL routing
-package prx
+package github
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 // TestCheckRunHistory_MultipleCommits tests that we capture check run failures
@@ -162,9 +164,8 @@ func TestCheckRunHistory_MultipleCommits(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient := &http.Client{Transport: http.DefaultTransport}
-	client := NewClient("test-token", WithHTTPClient(httpClient))
-	client.github = newTestGitHubClient(httpClient, "test-token", server.URL)
+	platform := NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "codeGROOVE-dev", "slacker", 66)
@@ -179,7 +180,7 @@ func TestCheckRunHistory_MultipleCommits(t *testing.T) {
 	checkRunCount := 0
 	failureCount := 0
 	successCount := 0
-	var checkRunEvents []Event
+	var checkRunEvents []prx.Event
 
 	for _, event := range prData.Events {
 		if event.Kind == "check_run" {
@@ -219,9 +220,9 @@ func TestCheckRunHistory_MultipleCommits(t *testing.T) {
 		}
 	}
 
-	// Verify the CheckSummary shows the LATEST state (both checks passing)
+	// Verify the prx.CheckSummary shows the LATEST state (both checks passing)
 	if prData.PullRequest.CheckSummary == nil {
-		t.Fatal("Expected CheckSummary to be set")
+		t.Fatal("Expected prx.CheckSummary to be set")
 	}
 
 	if len(prData.PullRequest.CheckSummary.Success) != 2 {
@@ -313,9 +314,8 @@ func TestCheckRunHistory_CommitSHAPreservation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient := &http.Client{Transport: http.DefaultTransport}
-	client := NewClient("test-token", WithHTTPClient(httpClient))
-	client.github = newTestGitHubClient(httpClient, "test-token", server.URL)
+	platform := NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 100)
@@ -324,7 +324,7 @@ func TestCheckRunHistory_CommitSHAPreservation(t *testing.T) {
 	}
 
 	// Find the commit event
-	var commitEvent *Event
+	var commitEvent *prx.Event
 	for i := range prData.Events {
 		if prData.Events[i].Kind == "commit" {
 			commitEvent = &prData.Events[i]
@@ -347,7 +347,7 @@ func TestCheckRunHistory_CommitSHAPreservation(t *testing.T) {
 	}
 
 	// Find the check_run event
-	var checkRunEvent *Event
+	var checkRunEvent *prx.Event
 	for i := range prData.Events {
 		if prData.Events[i].Kind == "check_run" {
 			checkRunEvent = &prData.Events[i]
@@ -370,11 +370,11 @@ func TestCheckRunHistory_CommitSHAPreservation(t *testing.T) {
 	}
 }
 
-// TestCheckRunHistory_LatestStateCalculation tests that calculateCheckSummary
+// TestCheckRunHistory_LatestStateCalculation tests that Calculateprx.CheckSummary
 // correctly identifies the latest state when multiple runs exist for the same check.
 func TestCheckRunHistory_LatestStateCalculation(t *testing.T) {
 	// Create events with multiple runs of the same check at different times
-	events := []Event{
+	events := []prx.Event{
 		{
 			Kind:      "check_run",
 			Timestamp: time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
@@ -398,7 +398,7 @@ func TestCheckRunHistory_LatestStateCalculation(t *testing.T) {
 		},
 	}
 
-	summary := calculateCheckSummary(events, nil)
+	summary := prx.CalculateCheckSummary(events, nil)
 
 	// The latest run (12:00) was successful, so the check should be in Success
 	if len(summary.Success) != 1 {
@@ -418,7 +418,7 @@ func TestCheckRunHistory_LatestStateCalculation(t *testing.T) {
 // correctly handles events that arrive out of chronological order.
 func TestCheckRunHistory_OutOfOrderEvents(t *testing.T) {
 	// Events intentionally out of order - older success should not override newer failure
-	events := []Event{
+	events := []prx.Event{
 		{
 			Kind:      "check_run",
 			Timestamp: time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), // Newest (failure)
@@ -442,7 +442,7 @@ func TestCheckRunHistory_OutOfOrderEvents(t *testing.T) {
 		},
 	}
 
-	summary := calculateCheckSummary(events, nil)
+	summary := prx.CalculateCheckSummary(events, nil)
 
 	// The latest run (12:00) failed, so the check should be in Failing
 	if len(summary.Failing) != 1 {
@@ -460,68 +460,68 @@ func TestCheckRunHistory_OutOfOrderEvents(t *testing.T) {
 
 // TestCalculateTestStateFromCheckSummary tests the calculateTestStateFromCheckSummary function.
 func TestCalculateTestStateFromCheckSummary(t *testing.T) {
-	client := &Client{}
+	platform := &Platform{}
 
 	tests := []struct {
 		name      string
-		summary   *CheckSummary
+		summary   *prx.CheckSummary
 		wantState string
 	}{
 		{
 			name:      "nil summary returns none",
 			summary:   nil,
-			wantState: TestStateNone,
+			wantState: prx.TestStateNone,
 		},
 		{
 			name: "failing checks returns failing",
-			summary: &CheckSummary{
+			summary: &prx.CheckSummary{
 				Success: map[string]string{"test1": "passed"},
 				Failing: map[string]string{"test2": "failed"},
 				Pending: map[string]string{},
 			},
-			wantState: TestStateFailing,
+			wantState: prx.TestStateFailing,
 		},
 		{
 			name: "only pending checks returns pending",
-			summary: &CheckSummary{
+			summary: &prx.CheckSummary{
 				Success: map[string]string{},
 				Failing: map[string]string{},
 				Pending: map[string]string{"test1": "waiting"},
 			},
-			wantState: TestStatePending,
+			wantState: prx.TestStatePending,
 		},
 		{
 			name: "only successful checks returns passing",
-			summary: &CheckSummary{
+			summary: &prx.CheckSummary{
 				Success: map[string]string{"test1": "passed", "test2": "passed"},
 				Failing: map[string]string{},
 				Pending: map[string]string{},
 			},
-			wantState: TestStatePassing,
+			wantState: prx.TestStatePassing,
 		},
 		{
 			name: "no checks returns none",
-			summary: &CheckSummary{
+			summary: &prx.CheckSummary{
 				Success: map[string]string{},
 				Failing: map[string]string{},
 				Pending: map[string]string{},
 			},
-			wantState: TestStateNone,
+			wantState: prx.TestStateNone,
 		},
 		{
 			name: "failing takes precedence over pending",
-			summary: &CheckSummary{
+			summary: &prx.CheckSummary{
 				Success: map[string]string{},
 				Failing: map[string]string{"test1": "failed"},
 				Pending: map[string]string{"test2": "waiting"},
 			},
-			wantState: TestStateFailing,
+			wantState: prx.TestStateFailing,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := client.calculateTestStateFromCheckSummary(tt.summary)
+			got := platform.calculateTestStateFromCheckSummary(tt.summary)
 			if got != tt.wantState {
 				t.Errorf("calculateTestStateFromCheckSummary() = %v, want %v", got, tt.wantState)
 			}

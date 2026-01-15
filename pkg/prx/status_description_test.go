@@ -3,27 +3,38 @@ package prx
 import (
 	"testing"
 	"time"
-
-	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 )
+
+// testCheckRun is a test-only type that mirrors the structure of GitHub check runs.
+type testCheckRun struct {
+	Name        string
+	Status      string
+	Conclusion  string
+	StartedAt   time.Time
+	CompletedAt time.Time
+	Output      struct {
+		Title   string
+		Summary string
+	}
+}
 
 func TestCheckRunStatusDescriptions(t *testing.T) {
 	tests := []struct {
 		name            string
-		checkRun        github.CheckRun
+		checkRun        testCheckRun
 		expectedDesc    string
 		expectedOutcome string
 	}{
 		{
 			name: "check with title and summary",
-			checkRun: github.CheckRun{
+			checkRun: testCheckRun{
 				Name:        "*control",
 				Status:      "completed",
 				Conclusion:  "failure",
 				CompletedAt: time.Now(),
 				Output: struct {
-					Title   string `json:"title"`
-					Summary string `json:"summary"`
+					Title   string
+					Summary string
 				}{
 					Title:   "Plan requires authorisation.",
 					Summary: "Plans submitted by users that are not a member of the organisation require explicit authorisation.",
@@ -34,14 +45,14 @@ func TestCheckRunStatusDescriptions(t *testing.T) {
 		},
 		{
 			name: "check with only title",
-			checkRun: github.CheckRun{
+			checkRun: testCheckRun{
 				Name:        "test-check",
 				Status:      "completed",
 				Conclusion:  "success",
 				CompletedAt: time.Now(),
 				Output: struct {
-					Title   string `json:"title"`
-					Summary string `json:"summary"`
+					Title   string
+					Summary string
 				}{
 					Title: "All tests passed",
 				},
@@ -51,14 +62,14 @@ func TestCheckRunStatusDescriptions(t *testing.T) {
 		},
 		{
 			name: "check with only summary",
-			checkRun: github.CheckRun{
+			checkRun: testCheckRun{
 				Name:        "lint-check",
 				Status:      "completed",
 				Conclusion:  "failure",
 				CompletedAt: time.Now(),
 				Output: struct {
-					Title   string `json:"title"`
-					Summary string `json:"summary"`
+					Title   string
+					Summary string
 				}{
 					Summary: "Found 5 linting errors",
 				},
@@ -68,7 +79,7 @@ func TestCheckRunStatusDescriptions(t *testing.T) {
 		},
 		{
 			name: "check with no output",
-			checkRun: github.CheckRun{
+			checkRun: testCheckRun{
 				Name:        "basic-check",
 				Status:      "completed",
 				Conclusion:  "neutral",
@@ -79,7 +90,7 @@ func TestCheckRunStatusDescriptions(t *testing.T) {
 		},
 		{
 			name: "pending check (not completed)",
-			checkRun: github.CheckRun{
+			checkRun: testCheckRun{
 				Name:      "pending-check",
 				Status:    "in_progress",
 				StartedAt: time.Now(),
@@ -170,7 +181,7 @@ func TestCalculateCheckSummaryWithDescriptions(t *testing.T) {
 		"*control",
 	}
 
-	summary := calculateCheckSummary(events, requiredChecks)
+	summary := CalculateCheckSummary(events, requiredChecks)
 
 	// Verify counts
 	if len(summary.Success) != 2 {
@@ -202,14 +213,14 @@ func TestDropshotPR1359Regression(t *testing.T) {
 	// This test ensures we don't regress on the specific case of Dropshot PR #1359
 	// where the *control check should show "Plan requires authorisation." description
 
-	checkRun := github.CheckRun{
+	checkRun := testCheckRun{
 		Name:        "*control",
 		Status:      "completed",
 		Conclusion:  "failure",
 		CompletedAt: time.Date(2025, 6, 25, 15, 44, 14, 0, time.UTC),
 		Output: struct {
-			Title   string `json:"title"`
-			Summary string `json:"summary"`
+			Title   string
+			Summary string
 		}{
 			Title:   "Plan requires authorisation.",
 			Summary: "Plans submitted by users that are not a member of the organisation require explicit authorisation.",
@@ -245,7 +256,7 @@ func TestDropshotPR1359Regression(t *testing.T) {
 
 	// Also test that it appears correctly in the check summary
 	events := []Event{event}
-	summary := calculateCheckSummary(events, []string{})
+	summary := CalculateCheckSummary(events, []string{})
 
 	if desc, exists := summary.Failing["*control"]; !exists {
 		t.Error("Regression detected: *control not in failing statuses")
