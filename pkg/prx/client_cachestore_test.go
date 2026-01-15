@@ -67,8 +67,8 @@ func TestPRCacheKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key1 := prCacheKey(tt.owner, tt.repo, tt.prNumber)
-			key2 := prCacheKey(tt.owner, tt.repo, tt.prNumber)
+			key1 := prCacheKey("github", tt.owner, tt.repo, tt.prNumber)
+			key2 := prCacheKey("github", tt.owner, tt.repo, tt.prNumber)
 
 			// Same inputs should produce same key
 			if key1 != key2 {
@@ -83,8 +83,8 @@ func TestPRCacheKey(t *testing.T) {
 	}
 
 	// Different inputs should produce different keys
-	key1 := prCacheKey("owner", "repo", 1)
-	key2 := prCacheKey("owner", "repo", 2)
+	key1 := prCacheKey("github", "owner", "repo", 1)
+	key2 := prCacheKey("github", "owner", "repo", 2)
 	if key1 == key2 {
 		t.Errorf("Different inputs produced same key")
 	}
@@ -101,24 +101,5 @@ func TestCollaboratorsCacheKey(t *testing.T) {
 	key3 := collaboratorsCacheKey("other", "repo")
 	if key1 == key3 {
 		t.Errorf("Different inputs produced same key")
-	}
-}
-
-func TestClientClose(t *testing.T) {
-	tmpDir := t.TempDir()
-	store, err := NewCacheStore(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to create cache store: %v", err)
-	}
-	client := NewClient("test-token", WithCacheStore(store))
-
-	// Close should not error
-	if err := client.Close(); err != nil {
-		t.Errorf("Close returned error: %v", err)
-	}
-
-	// Closing again should be safe
-	if err := client.Close(); err != nil {
-		t.Errorf("Second close returned error: %v", err)
 	}
 }

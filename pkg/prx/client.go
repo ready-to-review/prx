@@ -1,6 +1,6 @@
-// Package prx provides a client for fetching GitHub pull request events.
-// It includes support for caching API responses to improve performance and
-// reduce API rate limit consumption.
+// Package prx provides a client for fetching pull request events from code hosting platforms.
+// It supports GitHub, GitLab, and Codeberg (Gitea), with caching to improve performance
+// and reduce API rate limit consumption.
 package prx
 
 import (
@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,41 +18,24 @@ import (
 
 	"github.com/codeGROOVE-dev/fido"
 	"github.com/codeGROOVE-dev/fido/pkg/store/localfs"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 )
 
 const (
-	// HTTP client configuration constants.
-	maxIdleConns        = 100
-	maxIdleConnsPerHost = 10
-	idleConnTimeoutSec  = 90
-
 	// Cache TTL constants.
 	prCacheTTL            = 20 * 24 * time.Hour // 20 days - validity checked against reference time
-	checkRunsCacheTTL     = 20 * 24 * time.Hour // 20 days - validity checked against reference time
 	collaboratorsCacheTTL = 3 * time.Hour       // 3 hours - repo-level, simple TTL
 	rulesetsCacheTTL      = 3 * time.Hour       // 3 hours - repo-level, simple TTL
 )
-
-// cachedCheckRuns stores check run events with a timestamp for cache validation.
-type cachedCheckRuns struct {
-	CachedAt time.Time
-	Events   []Event
-}
 
 // PRStore is the interface for PR cache storage backends.
 // This is an alias for fido.Store with the appropriate type parameters.
 type PRStore = fido.Store[string, PullRequestData]
 
-// Client provides methods to fetch GitHub pull request events.
+// Client provides methods to fetch pull request events from various platforms.
 type Client struct {
-	github             *github.Client
-	logger             *slog.Logger
-	collaboratorsCache *fido.Cache[string, map[string]string]
-	rulesetsCache      *fido.Cache[string, []string]
-	checkRunsCache     *fido.Cache[string, cachedCheckRuns]
-	prCache            *fido.TieredCache[string, PullRequestData]
-	token              string // Store token for recreating client with new transport
+	platform Platform
+	logger   *slog.Logger
+	prCache  *fido.TieredCache[string, PullRequestData]
 }
 
 // Option is a function that configures a Client.
@@ -63,19 +45,6 @@ type Option func(*Client)
 func WithLogger(logger *slog.Logger) Option {
 	return func(c *Client) {
 		c.logger = logger
-	}
-}
-
-// WithHTTPClient sets a custom HTTP client.
-func WithHTTPClient(httpClient *http.Client) Option {
-	return func(c *Client) {
-		// Wrap the transport with retry logic if not already wrapped
-		if httpClient.Transport == nil {
-			httpClient.Transport = &github.Transport{Base: http.DefaultTransport}
-		} else if _, ok := httpClient.Transport.(*github.Transport); !ok {
-			httpClient.Transport = &github.Transport{Base: httpClient.Transport}
-		}
-		c.github = newGitHubClient(httpClient, c.token, github.API)
 	}
 }
 
@@ -92,39 +61,28 @@ func WithCacheStore(store PRStore) Option {
 	}
 }
 
-// NewClient creates a new Client with the given GitHub token.
-// Caching is enabled by default with disk persistence.
-// Use WithCacheStore to provide a custom store (including null.New() to disable persistence).
-// If token is empty, WithHTTPClient option must be provided.
-func NewClient(token string, opts ...Option) *Client {
-	transport := &http.Transport{
-		MaxIdleConns:        maxIdleConns,
-		MaxIdleConnsPerHost: maxIdleConnsPerHost,
-		IdleConnTimeout:     idleConnTimeoutSec * time.Second,
-		DisableCompression:  false,
-		DisableKeepAlives:   false,
-	}
+// NewClient creates a new Client with the given platform.
+//
+// Deprecated: Use NewClientWithPlatform with an explicit platform instead.
+// For GitHub: NewClientWithPlatform(github.NewPlatform(token), opts...)
+// For GitLab: NewClientWithPlatform(gitlab.NewPlatform(token), opts...)
+// For Gitea:  NewClientWithPlatform(gitea.NewPlatform(token), opts...)
+func NewClient(platform Platform, opts ...Option) *Client {
+	return NewClientWithPlatform(platform, opts...)
+}
+
+// NewClientWithPlatform creates a new Client with the given platform.
+// Use this to create clients for GitLab, Codeberg, or other platforms.
+func NewClientWithPlatform(platform Platform, opts ...Option) *Client {
 	c := &Client{
-		logger:             slog.Default(),
-		token:              token,
-		collaboratorsCache: fido.New[string, map[string]string](fido.TTL(collaboratorsCacheTTL)),
-		rulesetsCache:      fido.New[string, []string](fido.TTL(rulesetsCacheTTL)),
-		checkRunsCache:     fido.New[string, cachedCheckRuns](fido.TTL(checkRunsCacheTTL)),
-		github: newGitHubClient(
-			&http.Client{
-				Transport: &github.Transport{Base: transport},
-				Timeout:   30 * time.Second,
-			},
-			token,
-			github.API,
-		),
+		platform: platform,
+		logger:   slog.Default(),
 	}
 
 	for _, opt := range opts {
 		opt(c)
 	}
 
-	// Set up default cache if none was configured via options
 	if c.prCache == nil {
 		c.prCache = createDefaultCache(c.logger)
 	}
@@ -168,32 +126,32 @@ func (c *Client) PullRequestWithReferenceTime(
 	refTime time.Time,
 ) (*PullRequestData, error) {
 	if c.prCache == nil {
-		return c.pullRequestViaGraphQL(ctx, owner, repo, pr, refTime)
+		return c.platform.FetchPR(ctx, owner, repo, pr, refTime)
 	}
 
-	key := prCacheKey(owner, repo, pr)
+	key := prCacheKey(c.platform.Name(), owner, repo, pr)
 
 	if cached, found, err := c.prCache.Get(ctx, key); err != nil {
 		c.logger.WarnContext(ctx, "cache get error", "error", err)
 	} else if found {
 		if !cached.CachedAt.Before(refTime) {
-			c.logger.InfoContext(ctx, "cache hit: GraphQL pull request",
-				"owner", owner, "repo", repo, "pr", pr, "cached_at", cached.CachedAt)
+			c.logger.InfoContext(ctx, "cache hit: pull request",
+				"platform", c.platform.Name(), "owner", owner, "repo", repo, "pr", pr, "cached_at", cached.CachedAt)
 			return &cached, nil
 		}
-		c.logger.InfoContext(ctx, "cache miss: GraphQL pull request expired",
-			"owner", owner, "repo", repo, "pr", pr,
+		c.logger.InfoContext(ctx, "cache miss: pull request expired",
+			"platform", c.platform.Name(), "owner", owner, "repo", repo, "pr", pr,
 			"cached_at", cached.CachedAt, "reference_time", refTime)
 		if err := c.prCache.Delete(ctx, key); err != nil {
 			c.logger.WarnContext(ctx, "failed to delete stale cache entry", "error", err)
 		}
 	} else {
-		c.logger.InfoContext(ctx, "cache miss: GraphQL pull request not in cache",
-			"owner", owner, "repo", repo, "pr", pr)
+		c.logger.InfoContext(ctx, "cache miss: pull request not in cache",
+			"platform", c.platform.Name(), "owner", owner, "repo", repo, "pr", pr)
 	}
 
 	result, err := c.prCache.Fetch(ctx, key, func(ctx context.Context) (PullRequestData, error) {
-		data, err := c.pullRequestViaGraphQL(ctx, owner, repo, pr, refTime)
+		data, err := c.platform.FetchPR(ctx, owner, repo, pr, refTime)
 		if err != nil {
 			return PullRequestData{}, err
 		}
@@ -232,8 +190,8 @@ func NewCacheStore(dir string) (PRStore, error) {
 }
 
 // prCacheKey generates a cache key for PR data.
-func prCacheKey(owner, repo string, prNumber int) string {
-	key := strings.Join([]string{"graphql", "pr_graphql", owner, repo, strconv.Itoa(prNumber)}, "/")
+func prCacheKey(platform, owner, repo string, prNumber int) string {
+	key := strings.Join([]string{platform, "pr", owner, repo, strconv.Itoa(prNumber)}, "/")
 	hash := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(hash[:])
 }
@@ -246,9 +204,4 @@ func collaboratorsCacheKey(owner, repo string) string {
 // rulesetsCacheKey generates a cache key for rulesets data.
 func rulesetsCacheKey(owner, repo string) string {
 	return fmt.Sprintf("%s/%s", owner, repo)
-}
-
-// checkRunsCacheKey generates a cache key for check runs data.
-func checkRunsCacheKey(owner, repo, sha string) string {
-	return fmt.Sprintf("%s/%s/%s", owner, repo, sha)
 }

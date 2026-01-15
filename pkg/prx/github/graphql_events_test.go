@@ -1,5 +1,5 @@
 //nolint:errcheck,gocritic // Test handlers don't need to check w.Write errors; if-else chains are fine for URL routing
-package prx
+package github
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 func TestClient_PullRequestWithReviews(t *testing.T) {
@@ -144,9 +146,8 @@ func TestClient_PullRequestWithReviews(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient := &http.Client{Transport: http.DefaultTransport}
-	client := NewClient("test-token", WithHTTPClient(httpClient))
-	client.github = newTestGitHubClient(httpClient, "test-token", server.URL)
+	platform := NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 789)
@@ -260,9 +261,8 @@ func TestClient_PullRequestWithBots(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient := &http.Client{Transport: http.DefaultTransport}
-	client := NewClient("test-token", WithHTTPClient(httpClient))
-	client.github = newTestGitHubClient(httpClient, "test-token", server.URL)
+	platform := NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 999)

@@ -1,9 +1,11 @@
-package prx
+package github
 
 import (
 	"context"
 	"log/slog"
 	"testing"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 
 	"github.com/codeGROOVE-dev/fido"
 )
@@ -14,16 +16,16 @@ func TestPermissionToWriteAccess(t *testing.T) {
 		permission string
 		expected   int
 	}{
-		{"admin", WriteAccessDefinitely},
-		{"maintain", WriteAccessDefinitely},
-		{"write", WriteAccessDefinitely},
-		{"read", WriteAccessNo},
-		{"triage", WriteAccessNo},
-		{"none", WriteAccessNo},
-		{"", WriteAccessUnlikely},          // Not in collaborators list
-		{"unknown", WriteAccessUnlikely},   // Unknown permission
-		{"ADMIN", WriteAccessUnlikely},     // Case sensitive - not matched
-		{"something", WriteAccessUnlikely}, // Invalid permission
+		{"admin", prx.WriteAccessDefinitely},
+		{"maintain", prx.WriteAccessDefinitely},
+		{"write", prx.WriteAccessDefinitely},
+		{"read", prx.WriteAccessNo},
+		{"triage", prx.WriteAccessNo},
+		{"none", prx.WriteAccessNo},
+		{"", prx.WriteAccessUnlikely},          // Not in collaborators list
+		{"unknown", prx.WriteAccessUnlikely},   // Unknown permission
+		{"ADMIN", prx.WriteAccessUnlikely},     // Case sensitive - not matched
+		{"something", prx.WriteAccessUnlikely}, // Invalid permission
 	}
 
 	for _, tt := range tests {
@@ -32,11 +34,11 @@ func TestPermissionToWriteAccess(t *testing.T) {
 			var result int
 			switch tt.permission {
 			case "admin", "maintain", "write":
-				result = WriteAccessDefinitely
+				result = prx.WriteAccessDefinitely
 			case "read", "triage", "none":
-				result = WriteAccessNo
+				result = prx.WriteAccessNo
 			default:
-				result = WriteAccessUnlikely
+				result = prx.WriteAccessUnlikely
 			}
 			if result != tt.expected {
 				t.Errorf("permission mapping for %q = %d, want %d",
@@ -97,37 +99,37 @@ func TestWriteAccessFromAssociationWithCache(t *testing.T) {
 			name:       "member with admin permission",
 			user:       "alice",
 			permission: "admin",
-			expected:   WriteAccessDefinitely,
+			expected:   prx.WriteAccessDefinitely,
 		},
 		{
 			name:       "member with write permission",
 			user:       "bob",
 			permission: "write",
-			expected:   WriteAccessDefinitely,
+			expected:   prx.WriteAccessDefinitely,
 		},
 		{
 			name:       "member with maintain permission",
 			user:       "charlie",
 			permission: "maintain",
-			expected:   WriteAccessDefinitely,
+			expected:   prx.WriteAccessDefinitely,
 		},
 		{
 			name:       "member with read permission",
 			user:       "david",
 			permission: "read",
-			expected:   WriteAccessNo,
+			expected:   prx.WriteAccessNo,
 		},
 		{
 			name:       "member with triage permission",
 			user:       "eve",
 			permission: "triage",
-			expected:   WriteAccessNo,
+			expected:   prx.WriteAccessNo,
 		},
 		{
 			name:       "member not in collaborators list",
 			user:       "frank",
 			permission: "", // Not in the cache
-			expected:   WriteAccessUnlikely,
+			expected:   prx.WriteAccessUnlikely,
 		},
 	}
 
@@ -150,13 +152,13 @@ func TestWriteAccessFromAssociationWithCache(t *testing.T) {
 			cacheKey := collaboratorsCacheKey("owner", "repo")
 			cache.Set(cacheKey, collabs)
 
-			// Create client with cache
-			c := &Client{
+			// Create platform with cache
+			p := &Platform{
 				logger:             slog.Default(),
 				collaboratorsCache: cache,
 			}
 
-			result := c.writeAccessFromAssociation(ctx, "owner", "repo", tt.user, "MEMBER")
+			result := p.writeAccessFromAssociation(ctx, "owner", "repo", tt.user, "MEMBER")
 			if result != tt.expected {
 				t.Errorf("writeAccessFromAssociation(MEMBER, %s) = %d, want %d",
 					tt.user, result, tt.expected)
@@ -180,18 +182,18 @@ func TestWriteAccessFromAssociationCacheHit(t *testing.T) {
 	cacheKey := collaboratorsCacheKey("codeGROOVE-dev", "goose")
 	cache.Set(cacheKey, collabs)
 
-	// Create client with cache but without a real GitHub client
+	// Create platform with cache but without a real HTTP client
 	// This tests that we use the cache and don't try to call the API
-	c := &Client{
+	p := &Platform{
 		logger:             slog.Default(),
 		collaboratorsCache: cache,
-		github:             nil, // No GitHub client - would fail if API called
+		client:             nil, // No HTTP client - would fail if API called
 	}
 
-	result := c.writeAccessFromAssociation(ctx, "codeGROOVE-dev", "goose", "tstromberg", "MEMBER")
-	if result != WriteAccessDefinitely {
+	result := p.writeAccessFromAssociation(ctx, "codeGROOVE-dev", "goose", "tstromberg", "MEMBER")
+	if result != prx.WriteAccessDefinitely {
 		t.Errorf("writeAccessFromAssociation(MEMBER, tstromberg) = %d, want %d",
-			result, WriteAccessDefinitely)
+			result, prx.WriteAccessDefinitely)
 	}
 }
 
@@ -202,7 +204,7 @@ func TestWriteAccessFromAssociationNonMember(t *testing.T) {
 	// Empty cache
 	cache := fido.New[string, map[string]string](fido.TTL(collaboratorsCacheTTL))
 
-	c := &Client{
+	p := &Platform{
 		logger:             slog.Default(),
 		collaboratorsCache: cache,
 	}
@@ -211,17 +213,17 @@ func TestWriteAccessFromAssociationNonMember(t *testing.T) {
 		association string
 		expected    int
 	}{
-		{"OWNER", WriteAccessDefinitely},
-		{"COLLABORATOR", WriteAccessDefinitely},
-		{"CONTRIBUTOR", WriteAccessUnlikely},
-		{"NONE", WriteAccessUnlikely},
-		{"FIRST_TIME_CONTRIBUTOR", WriteAccessUnlikely},
-		{"FIRST_TIMER", WriteAccessUnlikely},
+		{"OWNER", prx.WriteAccessDefinitely},
+		{"COLLABORATOR", prx.WriteAccessDefinitely},
+		{"CONTRIBUTOR", prx.WriteAccessUnlikely},
+		{"NONE", prx.WriteAccessUnlikely},
+		{"FIRST_TIME_CONTRIBUTOR", prx.WriteAccessUnlikely},
+		{"FIRST_TIMER", prx.WriteAccessUnlikely},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.association, func(t *testing.T) {
-			result := c.writeAccessFromAssociation(ctx, "owner", "repo", "user", tt.association)
+			result := p.writeAccessFromAssociation(ctx, "owner", "repo", "user", tt.association)
 			if result != tt.expected {
 				t.Errorf("writeAccessFromAssociation(%s) = %d, want %d",
 					tt.association, result, tt.expected)

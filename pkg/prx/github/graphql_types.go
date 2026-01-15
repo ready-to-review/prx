@@ -1,4 +1,4 @@
-package prx
+package github
 
 import (
 	"strings"

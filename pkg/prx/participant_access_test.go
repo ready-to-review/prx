@@ -44,7 +44,7 @@ func TestCalculateParticipantAccess(t *testing.T) {
 		},
 	}
 
-	participants := calculateParticipantAccess(events, pr)
+	participants := CalculateParticipantAccess(events, pr)
 
 	// Verify author is included
 	if access, ok := participants["author1"]; !ok || access != WriteAccessUnlikely {
@@ -104,7 +104,7 @@ func TestCalculateParticipantAccessUpgrade(t *testing.T) {
 		},
 	}
 
-	participants := calculateParticipantAccess(events, pr)
+	participants := CalculateParticipantAccess(events, pr)
 
 	// Verify user1 got upgraded to WriteAccessDefinitely
 	if access, ok := participants["user1"]; !ok || access != WriteAccessDefinitely {
@@ -121,7 +121,7 @@ func TestCalculateParticipantAccessEmpty(t *testing.T) {
 
 	events := []Event{}
 
-	participants := calculateParticipantAccess(events, pr)
+	participants := CalculateParticipantAccess(events, pr)
 
 	// Should only have the author
 	if len(participants) != 1 {

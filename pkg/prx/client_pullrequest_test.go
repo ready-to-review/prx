@@ -1,5 +1,5 @@
 //nolint:errcheck,gocritic // Test handlers don't need to check w.Write errors; if-else chains are fine for URL routing
-package prx
+package prx_test
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 )
 
 func TestClient_PullRequest(t *testing.T) {
@@ -57,11 +60,8 @@ func TestClient_PullRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient := &http.Client{Transport: http.DefaultTransport}
-	client := NewClient("test-token", WithHTTPClient(httpClient))
-
-	// Override the API URL to point to our test server
-	client.github = newTestGitHubClient(httpClient, "test-token", server.URL)
+	platform := github.NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 123)
@@ -130,15 +130,12 @@ func TestClient_PullRequestWithCache(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient := &http.Client{Transport: http.DefaultTransport}
-	store, err := NewCacheStore(tmpDir)
+	store, err := prx.NewCacheStore(tmpDir)
 	if err != nil {
 		t.Fatalf("Failed to create cache store: %v", err)
 	}
-	client := NewClient("test-token", WithCacheStore(store), WithHTTPClient(httpClient))
-
-	// Override the API URL
-	client.github = newTestGitHubClient(httpClient, "test-token", server.URL)
+	platform := github.NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform, prx.WithCacheStore(store))
 
 	ctx := context.Background()
 	refTime := time.Now()

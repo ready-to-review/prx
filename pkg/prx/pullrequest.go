@@ -37,9 +37,9 @@ type PullRequest struct {
 	MergedAt        *time.Time       `json:"merged_at,omitempty"`
 	ApprovalSummary *ApprovalSummary `json:"approval_summary,omitempty"`
 	CheckSummary    *CheckSummary    `json:"check_summary,omitempty"`
-	Mergeable       *bool            `json:"mergeable"`
+	Mergeable       *bool            `json:"mergeable,omitempty"`
 	// 24-byte slice/map fields
-	Assignees         []string               `json:"assignees"`
+	Assignees         []string               `json:"assignees,omitempty"`
 	Labels            []string               `json:"labels,omitempty"`
 	Commits           []string               `json:"commits,omitempty"` // List of commit SHAs in chronological order (oldest to newest)
 	Reviewers         map[string]ReviewState `json:"reviewers,omitempty"`
@@ -99,14 +99,14 @@ type PullRequestData struct {
 	PullRequest PullRequest `json:"pull_request"`
 }
 
-// finalizePullRequest applies final calculations and consistency fixes.
-func finalizePullRequest(pullRequest *PullRequest, events []Event, requiredChecks []string, testStateFromAPI string) {
+// FinalizePullRequest applies final calculations and consistency fixes.
+func FinalizePullRequest(pullRequest *PullRequest, events []Event, requiredChecks []string, testStateFromAPI string) {
 	pullRequest.TestState = testStateFromAPI
-	pullRequest.CheckSummary = calculateCheckSummary(events, requiredChecks)
-	pullRequest.ApprovalSummary = calculateApprovalSummary(events)
-	pullRequest.ParticipantAccess = calculateParticipantAccess(events, pullRequest)
+	pullRequest.CheckSummary = CalculateCheckSummary(events, requiredChecks)
+	pullRequest.ApprovalSummary = CalculateApprovalSummary(events)
+	pullRequest.ParticipantAccess = CalculateParticipantAccess(events, pullRequest)
 
-	fixTestState(pullRequest)
+	FixTestState(pullRequest)
 
 	// Ensure mergeable is consistent with mergeable_state
 	if pullRequest.MergeableState == "blocked" || pullRequest.MergeableState == "dirty" || pullRequest.MergeableState == "unstable" {
@@ -117,8 +117,11 @@ func finalizePullRequest(pullRequest *PullRequest, events []Event, requiredCheck
 	setMergeableDescription(pullRequest)
 }
 
-// fixTestState ensures test_state is consistent with check_summary.
-func fixTestState(pullRequest *PullRequest) {
+// FixTestState ensures test_state is consistent with check_summary.
+// If CheckSummary has data, it takes precedence. Otherwise, preserve
+// the existing TestState (which may have been set from platform-specific
+// data like GitLab pipelines).
+func FixTestState(pullRequest *PullRequest) {
 	switch {
 	case len(pullRequest.CheckSummary.Failing) > 0 || len(pullRequest.CheckSummary.Cancelled) > 0:
 		pullRequest.TestState = TestStateFailing
@@ -127,7 +130,12 @@ func fixTestState(pullRequest *PullRequest) {
 	case len(pullRequest.CheckSummary.Success) > 0:
 		pullRequest.TestState = TestStatePassing
 	default:
-		pullRequest.TestState = TestStateNone
+		// Preserve existing TestState if CheckSummary is empty.
+		// This allows platform-specific test state (e.g., GitLab pipelines)
+		// to be retained when there are no check_run events.
+		if pullRequest.TestState == "" {
+			pullRequest.TestState = TestStateNone
+		}
 	}
 }
 

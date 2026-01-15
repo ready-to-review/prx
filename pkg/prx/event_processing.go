@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
-// filterEvents removes non-essential events to reduce noise.
+// FilterEvents removes non-essential events to reduce noise.
 // Currently filters out successful status_check events (keeps failures).
-func filterEvents(events []Event) []Event {
+func FilterEvents(events []Event) []Event {
 	filtered := make([]Event, 0, len(events))
 
 	for i := range events {
@@ -26,9 +26,9 @@ func filterEvents(events []Event) []Event {
 	return filtered
 }
 
-// upgradeWriteAccess scans through events and upgrades write_access from 1 (likely) to 2 (definitely)
+// UpgradeWriteAccess scans through events and upgrades write_access from 1 (likely) to 2 (definitely)
 // for actors who have performed actions that require write access.
-func upgradeWriteAccess(events []Event) {
+func UpgradeWriteAccess(events []Event) {
 	// Track actors who have definitely demonstrated write access
 	confirmed := make(map[string]bool)
 
@@ -57,8 +57,8 @@ func upgradeWriteAccess(events []Event) {
 	}
 }
 
-// calculateCheckSummary analyzes check/status events and categorizes them by outcome.
-func calculateCheckSummary(events []Event, requiredChecks []string) *CheckSummary {
+// CalculateCheckSummary analyzes check/status events and categorizes them by outcome.
+func CalculateCheckSummary(events []Event, requiredChecks []string) *CheckSummary {
 	summary := &CheckSummary{
 		Success:   make(map[string]string),
 		Failing:   make(map[string]string),
@@ -143,8 +143,8 @@ func calculateCheckSummary(events []Event, requiredChecks []string) *CheckSummar
 	return summary
 }
 
-// calculateApprovalSummary analyzes review events and categorizes approvals by reviewer's write access.
-func calculateApprovalSummary(events []Event) *ApprovalSummary {
+// CalculateApprovalSummary analyzes review events and categorizes approvals by reviewer's write access.
+func CalculateApprovalSummary(events []Event) *ApprovalSummary {
 	summary := &ApprovalSummary{}
 
 	// Track the latest review state from each user
@@ -184,9 +184,9 @@ func calculateApprovalSummary(events []Event) *ApprovalSummary {
 	return summary
 }
 
-// calculateParticipantAccess builds a map of all PR participants to their write access levels.
+// CalculateParticipantAccess builds a map of all PR participants to their write access levels.
 // Includes the PR author, assignees, reviewers, and all event actors.
-func calculateParticipantAccess(events []Event, pr *PullRequest) map[string]int {
+func CalculateParticipantAccess(events []Event, pr *PullRequest) map[string]int {
 	participants := make(map[string]int)
 
 	// Add the PR author

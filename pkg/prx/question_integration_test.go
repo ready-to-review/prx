@@ -44,7 +44,7 @@ func TestQuestionFieldIntegration(t *testing.T) {
 				Kind:     "review",
 				Body:     tt.body,
 				Outcome:  tt.outcome,
-				Question: containsQuestion(tt.body),
+				Question: ContainsQuestion(tt.body),
 			}
 
 			if event.Question != tt.expected {

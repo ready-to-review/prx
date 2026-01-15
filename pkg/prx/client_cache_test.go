@@ -1,4 +1,4 @@
-package prx
+package prx_test
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 )
 
 func TestCacheClient(t *testing.T) {
@@ -80,23 +83,20 @@ func TestCacheClient(t *testing.T) {
 	defer server.Close()
 
 	// Create cache store and client with test server
-	store, err := NewCacheStore(cacheDir)
+	store, err := prx.NewCacheStore(cacheDir)
 	if err != nil {
 		t.Fatalf("Failed to create cache store: %v", err)
 	}
-	client := NewClient("test-token",
-		WithCacheStore(store),
-		WithHTTPClient(&http.Client{Transport: &http.Transport{}}),
-		WithLogger(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))),
+	platform := github.NewTestPlatform("test-token", server.URL)
+	client := prx.NewClientWithPlatform(platform,
+		prx.WithCacheStore(store),
+		prx.WithLogger(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))),
 	)
 	defer func() {
 		if closeErr := client.Close(); closeErr != nil {
 			t.Errorf("Failed to close client: %v", closeErr)
 		}
 	}()
-
-	// Override the GitHub client to use test server
-	client.github = newTestGitHubClient(&http.Client{Transport: &http.Transport{}}, "test-token", server.URL)
 
 	ctx := context.Background()
 
@@ -143,72 +143,6 @@ func TestCacheClient(t *testing.T) {
 
 	if afterThirdRequest == beforeThirdRequest {
 		t.Error("Expected API requests for future reference time")
-	}
-}
-
-func TestCacheKeyGeneration(t *testing.T) {
-	// Test that cache keys are consistent
-	key1 := prCacheKey("owner", "repo", 123)
-	key2 := prCacheKey("owner", "repo", 123)
-
-	if key1 != key2 {
-		t.Error("Cache keys should be consistent for same inputs")
-	}
-
-	// Test that different inputs produce different keys
-	key3 := prCacheKey("owner", "repo", 456)
-	if key1 == key3 {
-		t.Error("Different inputs should produce different cache keys")
-	}
-
-	// Verify key format (should be 64 char hex string)
-	if len(key1) != 64 {
-		t.Errorf("Cache key should be 64 characters, got %d", len(key1))
-	}
-
-	if !isHexString(key1) {
-		t.Error("Cache key should be a hex string")
-	}
-}
-
-func TestIsHexString(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected bool
-	}{
-		{"0123456789abcdef", true},
-		{"ABCDEF", true},
-		{"0123456789ABCDEF", true},
-		{"xyz", false},
-		{"12g4", false},
-		{"", true}, // Empty string is technically all hex
-	}
-
-	for _, tt := range tests {
-		result := isHexString(tt.input)
-		if result != tt.expected {
-			t.Errorf("isHexString(%q) = %v, want %v", tt.input, result, tt.expected)
-		}
-	}
-}
-
-func TestRulesetsCacheKey(t *testing.T) {
-	key1 := rulesetsCacheKey("owner", "repo")
-	key2 := rulesetsCacheKey("owner", "repo")
-
-	if key1 != key2 {
-		t.Errorf("Same inputs produced different keys: %s vs %s", key1, key2)
-	}
-
-	key3 := rulesetsCacheKey("other", "repo")
-	if key1 == key3 {
-		t.Error("Different inputs produced same key")
-	}
-
-	// Verify format
-	expected := "owner/repo"
-	if key1 != expected {
-		t.Errorf("Expected key %q, got %q", expected, key1)
 	}
 }
 
@@ -274,22 +208,13 @@ func TestRulesetsCache(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient("test-token",
-		WithHTTPClient(&http.Client{Transport: &http.Transport{}}),
-		WithLogger(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))),
-	)
-	client.github = newTestGitHubClient(&http.Client{Transport: &http.Transport{}}, "test-token", server.URL)
-	defer func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("Failed to close client: %v", err)
-		}
-	}()
+	platform := github.NewTestPlatform("test-token", server.URL)
 
 	ctx := context.Background()
 	refTime := time.Now()
 
 	// First request - should call rulesets API
-	_, err := client.pullRequestViaGraphQL(ctx, "test", "repo", 1, refTime)
+	_, err := platform.FetchPR(ctx, "test", "repo", 1, refTime)
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
@@ -299,7 +224,7 @@ func TestRulesetsCache(t *testing.T) {
 	}
 
 	// Second request - should use cached rulesets
-	_, err = client.pullRequestViaGraphQL(ctx, "test", "repo", 1, refTime)
+	_, err = platform.FetchPR(ctx, "test", "repo", 1, refTime)
 	if err != nil {
 		t.Fatalf("Second request failed: %v", err)
 	}
@@ -309,7 +234,7 @@ func TestRulesetsCache(t *testing.T) {
 	}
 
 	// Third request for same repo - should still use cache
-	_, err = client.pullRequestViaGraphQL(ctx, "test", "repo", 2, refTime)
+	_, err = platform.FetchPR(ctx, "test", "repo", 2, refTime)
 	if err != nil {
 		t.Fatalf("Third request failed: %v", err)
 	}
