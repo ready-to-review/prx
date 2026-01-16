@@ -5,9 +5,9 @@ Go library for fetching pull request data from GitHub, GitLab, and Gitea/Codeber
 ## Quick Start
 
 ```go
-import "github.com/codeGROOVE-dev/prx/pkg/prx"
+import "github.com/codeGROOVE-dev/prx/pkg/pr"
 
-data, err := prx.Fetch(ctx, "https://github.com/golang/go/pull/12345")
+data, err := pr.Fetch(ctx, "https://github.com/golang/go/pull/12345")
 // Works with: GitHub, GitLab, Codeberg, self-hosted instances
 ```
 Auto-detects platform and resolves authentication from `GITHUB_TOKEN`/`GITLAB_TOKEN`/`GITEA_TOKEN` or CLI tools (`gh`, `glab`, `tea`, `berg`).
@@ -21,7 +21,7 @@ import (
 )
 
 platform := github.NewPlatform(token)
-client := prx.NewClientWithPlatform(platform)
+client := prx.NewClient(platform)
 data, err := client.PullRequest(ctx, "owner", "repo", 123)
 ```
 

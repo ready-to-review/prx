@@ -2,8 +2,6 @@ package prx
 
 import (
 	"testing"
-
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 func TestQuestionFieldIntegration(t *testing.T) {
@@ -42,11 +40,11 @@ func TestQuestionFieldIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate creating an event like in reviews
-			event := types.Event{
+			event := Event{
 				Kind:     "review",
 				Body:     tt.body,
 				Outcome:  tt.outcome,
-				Question: types.ContainsQuestion(tt.body),
+				Question: ContainsQuestion(tt.body),
 			}
 
 			if event.Question != tt.expected {

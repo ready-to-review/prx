@@ -147,7 +147,7 @@ func TestClient_PullRequestWithReviews(t *testing.T) {
 	defer server.Close()
 
 	platform := NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 789)
@@ -262,7 +262,7 @@ func TestClient_PullRequestWithBots(t *testing.T) {
 	defer server.Close()
 
 	platform := NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 999)

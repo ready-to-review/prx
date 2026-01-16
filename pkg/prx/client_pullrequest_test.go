@@ -61,7 +61,7 @@ func TestClient_PullRequest(t *testing.T) {
 	defer server.Close()
 
 	platform := github.NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 123)
@@ -135,7 +135,7 @@ func TestClient_PullRequestWithCache(t *testing.T) {
 		t.Fatalf("Failed to create cache store: %v", err)
 	}
 	platform := github.NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform, prx.WithCacheStore(store))
+	client := prx.NewClient(platform, prx.WithCacheStore(store))
 
 	ctx := context.Background()
 	refTime := time.Now()

@@ -14,7 +14,6 @@ import (
 
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 const (
@@ -40,7 +39,7 @@ func main() {
 
 	// Both now use GraphQL, but we'll compare two fetches to ensure consistency
 	fmt.Println("Fetching first time...")
-	restClient := prx.NewClientWithPlatform(github.NewPlatform(token))
+	restClient := prx.NewClient(github.NewPlatform(token))
 	restData, err := restClient.PullRequest(context.TODO(), owner, repo, prNumber)
 	if err != nil {
 		log.Fatalf("First fetch failed: %v", err)
@@ -48,7 +47,7 @@ func main() {
 
 	// Fetch again to compare consistency
 	fmt.Println("Fetching second time...")
-	graphqlClient := prx.NewClientWithPlatform(github.NewPlatform(token))
+	graphqlClient := prx.NewClient(github.NewPlatform(token))
 	graphqlData, err := graphqlClient.PullRequest(context.TODO(), owner, repo, prNumber)
 	if err != nil {
 		log.Fatalf("Second fetch failed: %v", err)
@@ -64,7 +63,7 @@ func main() {
 	fmt.Println("\nFull data saved to rest_output.json and graphql_output.json")
 }
 
-func comparePullRequestData(rest, graphql *types.PullRequestData) {
+func comparePullRequestData(rest, graphql *prx.PullRequestData) {
 	// Compare PullRequest fields
 	fmt.Println("=== Pull Request Metadata ===")
 	comparePullRequest(&rest.PullRequest, &graphql.PullRequest)
@@ -74,7 +73,7 @@ func comparePullRequestData(rest, graphql *types.PullRequestData) {
 	compareEvents(rest.Events, graphql.Events)
 }
 
-func comparePullRequest(rest, graphql *types.PullRequest) {
+func comparePullRequest(rest, graphql *prx.PullRequest) {
 	differences, matches := compareFields(rest, graphql)
 
 	if len(differences) > 0 {
@@ -87,7 +86,7 @@ func comparePullRequest(rest, graphql *types.PullRequest) {
 	fmt.Printf("\nMatching fields: %s\n", strings.Join(matches, ", "))
 }
 
-func compareFields(rest, graphql *types.PullRequest) (differences, matches []string) {
+func compareFields(rest, graphql *prx.PullRequest) (differences, matches []string) {
 	restVal := reflect.ValueOf(*rest)
 	graphqlVal := reflect.ValueOf(*graphql)
 	restType := restVal.Type()
@@ -132,7 +131,7 @@ func comparePointerField(name string, restField, graphqlField reflect.Value) str
 	return ""
 }
 
-func compareCheckSummary(rest, graphql *types.PullRequest) {
+func compareCheckSummary(rest, graphql *prx.PullRequest) {
 	if rest.CheckSummary == nil || graphql.CheckSummary == nil {
 		return
 	}
@@ -150,7 +149,7 @@ func compareCheckSummary(rest, graphql *types.PullRequest) {
 	compareCheckSummaryMaps(rest.CheckSummary, graphql.CheckSummary)
 }
 
-func compareCheckSummaryMaps(rest, graphql *types.CheckSummary) {
+func compareCheckSummaryMaps(rest, graphql *prx.CheckSummary) {
 	compareSummaryMap("Success", rest.Success, graphql.Success)
 	compareSummaryMap("Failing", rest.Failing, graphql.Failing)
 	compareSummaryMap("Pending", rest.Pending, graphql.Pending)
@@ -187,7 +186,7 @@ func compareStatusMaps(rest, graphql map[string]string) {
 	}
 }
 
-func compareEvents(restEvents, graphqlEvents []types.Event) {
+func compareEvents(restEvents, graphqlEvents []prx.Event) {
 	// Count events by type
 	restCounts := countEventsByType(restEvents)
 	graphqlCounts := countEventsByType(graphqlEvents)
@@ -295,7 +294,7 @@ func compareEvents(restEvents, graphqlEvents []types.Event) {
 	}
 }
 
-func countEventsByType(events []types.Event) map[string]int {
+func countEventsByType(events []prx.Event) map[string]int {
 	counts := make(map[string]int)
 	for i := range events {
 		counts[events[i].Kind]++
@@ -303,15 +302,15 @@ func countEventsByType(events []types.Event) map[string]int {
 	return counts
 }
 
-func groupEventsByType(events []types.Event) map[string][]types.Event {
-	grouped := make(map[string][]types.Event)
+func groupEventsByType(events []prx.Event) map[string][]prx.Event {
+	grouped := make(map[string][]prx.Event)
 	for i := range events {
 		grouped[events[i].Kind] = append(grouped[events[i].Kind], events[i])
 	}
 	return grouped
 }
 
-func extractWriteAccess(events []types.Event) map[string]int {
+func extractWriteAccess(events []prx.Event) map[string]int {
 	access := make(map[string]int)
 	for i := range events {
 		e := &events[i]
@@ -325,7 +324,7 @@ func extractWriteAccess(events []types.Event) map[string]int {
 	return access
 }
 
-func extractBots(events []types.Event) map[string]bool {
+func extractBots(events []prx.Event) map[string]bool {
 	bots := make(map[string]bool)
 	for i := range events {
 		e := &events[i]

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 
 	"github.com/codeGROOVE-dev/fido"
 )
@@ -47,7 +47,7 @@ func TestGraphQLParity(t *testing.T) {
 }
 
 // comparePullRequestData compares REST and GraphQL results
-func comparePullRequestData(t *testing.T, rest, graphql *types.PullRequestData) {
+func comparePullRequestData(t *testing.T, rest, graphql *prx.PullRequestData) {
 	t.Helper()
 	// Compare PullRequest fields
 	pr1 := rest.PullRequest
@@ -91,7 +91,7 @@ func comparePullRequestData(t *testing.T, rest, graphql *types.PullRequestData) 
 }
 
 // countEventsByType counts events by their Kind
-func countEventsByType(events []types.Event) map[string]int {
+func countEventsByType(events []prx.Event) map[string]int {
 	counts := make(map[string]int)
 	for i := range events {
 		counts[events[i].Kind]++
@@ -100,7 +100,7 @@ func countEventsByType(events []types.Event) map[string]int {
 }
 
 // compareEvents compares event details
-func compareEvents(t *testing.T, restEvents, graphqlEvents []types.Event) {
+func compareEvents(t *testing.T, restEvents, graphqlEvents []prx.Event) {
 	t.Helper()
 	// Sort events by timestamp and kind for comparison
 	sort.Slice(restEvents, func(i, j int) bool {
@@ -130,7 +130,7 @@ func compareEvents(t *testing.T, restEvents, graphqlEvents []types.Event) {
 		}
 
 		// For events with write access, ensure it's preserved
-		if rest.WriteAccess != types.WriteAccessNA && graphql.WriteAccess == types.WriteAccessNA {
+		if rest.WriteAccess != prx.WriteAccessNA && graphql.WriteAccess == prx.WriteAccessNA {
 			t.Errorf("WriteAccess lost for event %s by %s: REST=%d, GraphQL=%d",
 				rest.Kind, rest.Actor, rest.WriteAccess, graphql.WriteAccess)
 		}
@@ -277,14 +277,14 @@ func TestWriteAccessMapping(t *testing.T) {
 		association string
 		expected    int
 	}{
-		{"OWNER", types.WriteAccessDefinitely},
-		{"COLLABORATOR", types.WriteAccessDefinitely},
-		{"MEMBER", types.WriteAccessLikely}, // Falls back to likely when collaborators API unavailable
-		{"CONTRIBUTOR", types.WriteAccessUnlikely},
-		{"NONE", types.WriteAccessUnlikely},
-		{"FIRST_TIME_CONTRIBUTOR", types.WriteAccessUnlikely},
-		{"FIRST_TIMER", types.WriteAccessUnlikely},
-		{"UNKNOWN", types.WriteAccessNA},
+		{"OWNER", prx.WriteAccessDefinitely},
+		{"COLLABORATOR", prx.WriteAccessDefinitely},
+		{"MEMBER", prx.WriteAccessLikely}, // Falls back to likely when collaborators API unavailable
+		{"CONTRIBUTOR", prx.WriteAccessUnlikely},
+		{"NONE", prx.WriteAccessUnlikely},
+		{"FIRST_TIME_CONTRIBUTOR", prx.WriteAccessUnlikely},
+		{"FIRST_TIMER", prx.WriteAccessUnlikely},
+		{"UNKNOWN", prx.WriteAccessNA},
 	}
 
 	for _, tt := range tests {

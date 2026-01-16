@@ -1,6 +1,4 @@
-// Package types contains the core types and interfaces used across the prx library.
-// This package is imported by platform implementations to avoid circular dependencies.
-package types
+package prx
 
 import (
 	"context"

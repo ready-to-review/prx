@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/codeGROOVE-dev/fido"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 // Cache TTL constants.
@@ -114,11 +114,11 @@ func NewPlatform(token string, opts ...Option) *Platform {
 
 // Name returns the platform identifier.
 func (*Platform) Name() string {
-	return types.PlatformGitLab
+	return prx.PlatformGitLab
 }
 
 // FetchPR retrieves a merge request with all events and metadata.
-func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
+func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
 	p.logger.Info("fetching merge request via GitLab REST API",
 		"project", projectPath, "mr", number)
@@ -170,16 +170,16 @@ func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, 
 
 	// Finalize the pull request with calculated summaries.
 	// Pass the TestState we derived from the pipeline so it doesn't get overwritten.
-	types.FinalizePullRequest(&pr, events, nil, pr.TestState)
+	prx.FinalizePullRequest(&pr, events, nil, pr.TestState)
 
-	return &types.PullRequestData{
+	return &prx.PullRequestData{
 		CachedAt:    time.Now(),
 		PullRequest: pr,
 		Events:      events,
 	}, nil
 }
 
-// GitLab API response types.
+// GitLab API response prx.
 
 //nolint:govet // fieldalignment: JSON API structs prioritize readability over memory layout
 type mergeRequest struct {
@@ -493,8 +493,8 @@ func (p *Platform) doRequest(ctx context.Context, url string, result any) (err e
 
 // Conversion methods.
 
-func convertMergeRequest(mr *mergeRequest, approvals *approvals, commits []commit) types.PullRequest {
-	pr := types.PullRequest{
+func convertMergeRequest(mr *mergeRequest, approvals *approvals, commits []commit) prx.PullRequest {
+	pr := prx.PullRequest{
 		Number:    mr.IID,
 		Title:     mr.Title,
 		Body:      mr.Description,
@@ -535,7 +535,7 @@ func convertMergeRequest(mr *mergeRequest, approvals *approvals, commits []commi
 	}
 
 	// Set reviewers with their states.
-	pr.Reviewers = make(map[string]types.ReviewState)
+	pr.Reviewers = make(map[string]prx.ReviewState)
 	for _, r := range mr.Reviewers {
 		pr.Reviewers[r.Username] = convertReviewerState(r.State)
 	}
@@ -543,7 +543,7 @@ func convertMergeRequest(mr *mergeRequest, approvals *approvals, commits []commi
 	// Update reviewer states from approvals.
 	if approvals != nil {
 		for _, ab := range approvals.ApprovedBy {
-			pr.Reviewers[ab.User.Username] = types.ReviewStateApproved
+			pr.Reviewers[ab.User.Username] = prx.ReviewStateApproved
 		}
 	}
 
@@ -575,18 +575,18 @@ func isBot(u *user) bool {
 func convertPipelineToTestState(status string) string {
 	switch status {
 	case "success":
-		return types.TestStatePassing
+		return prx.TestStatePassing
 	case "failed":
-		return types.TestStateFailing
+		return prx.TestStateFailing
 	case "running":
-		return types.TestStateRunning
+		return prx.TestStateRunning
 	case "pending", "waiting_for_resource", "preparing":
-		return types.TestStatePending
+		return prx.TestStatePending
 	case "created", "scheduled":
-		return types.TestStateQueued
+		return prx.TestStateQueued
 	default:
 		// canceled, skipped, manual, or unknown status
-		return types.TestStateNone
+		return prx.TestStateNone
 	}
 }
 
@@ -601,12 +601,12 @@ func convertState(state string) string {
 	}
 }
 
-func convertReviewerState(state string) types.ReviewState {
+func convertReviewerState(state string) prx.ReviewState {
 	switch state {
 	case "reviewed":
-		return types.ReviewStateCommented
+		return prx.ReviewStateCommented
 	default:
-		return types.ReviewStatePending
+		return prx.ReviewStatePending
 	}
 }
 
@@ -642,21 +642,21 @@ func convertToEvents(
 	discussions []discussion,
 	pipelines []pipeline,
 	commits []commit,
-) []types.Event {
-	var events []types.Event
+) []prx.Event {
+	var events []prx.Event
 
 	// Add MR opened event.
-	events = append(events, types.Event{
+	events = append(events, prx.Event{
 		Timestamp: mr.CreatedAt,
-		Kind:      types.EventKindPROpened,
+		Kind:      prx.EventKindPROpened,
 		Actor:     mr.Author.Username,
 	})
 
 	// Add commit events.
 	for i := range commits {
-		events = append(events, types.Event{
+		events = append(events, prx.Event{
 			Timestamp:   commits[i].AuthoredDate,
-			Kind:        types.EventKindCommit,
+			Kind:        prx.EventKindCommit,
 			Actor:       commits[i].AuthorName,
 			Body:        commits[i].ShortID,
 			Description: commits[i].Title,
@@ -705,142 +705,142 @@ func convertToEvents(
 
 	// Add closed/merged events.
 	if mr.MergedAt != nil {
-		events = append(events, types.Event{
+		events = append(events, prx.Event{
 			Timestamp: *mr.MergedAt,
-			Kind:      types.EventKindPRMerged,
+			Kind:      prx.EventKindPRMerged,
 			Actor:     safeUsername(mr.MergedBy),
 		})
 	} else if mr.ClosedAt != nil && mr.State == "closed" {
-		events = append(events, types.Event{
+		events = append(events, prx.Event{
 			Timestamp: *mr.ClosedAt,
-			Kind:      types.EventKindPRClosed,
+			Kind:      prx.EventKindPRClosed,
 		})
 	}
 
 	return events
 }
 
-func convertNote(n *note) *types.Event {
+func convertNote(n *note) *prx.Event {
 	if n.System {
 		return convertSystemNote(n)
 	}
 
 	// Regular user comment.
-	return &types.Event{
+	return &prx.Event{
 		Timestamp: n.CreatedAt,
-		Kind:      types.EventKindComment,
+		Kind:      prx.EventKindComment,
 		Actor:     n.Author.Username,
 		Body:      n.Body,
-		Question:  types.ContainsQuestion(n.Body),
+		Question:  prx.ContainsQuestion(n.Body),
 		Outdated:  n.Resolved,
 	}
 }
 
-func convertSystemNote(systemNote *note) *types.Event {
+func convertSystemNote(systemNote *note) *prx.Event {
 	body := strings.ToLower(systemNote.Body)
 
 	// Map GitLab system notes to our event kinds.
 	switch {
 	case strings.HasPrefix(body, "approved this merge request"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindReview,
+			Kind:      prx.EventKindReview,
 			Actor:     systemNote.Author.Username,
 			Outcome:   "approved",
 		}
 	case strings.HasPrefix(body, "unapproved this merge request"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindReview,
+			Kind:      prx.EventKindReview,
 			Actor:     systemNote.Author.Username,
 			Outcome:   "dismissed",
 		}
 	case strings.HasPrefix(body, "requested review from"):
 		target := extractMentionFromNote(systemNote.Body)
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindReviewRequested,
+			Kind:      prx.EventKindReviewRequested,
 			Actor:     systemNote.Author.Username,
 			Target:    target,
 		}
 	case strings.HasPrefix(body, "assigned to"):
 		target := extractMentionFromNote(systemNote.Body)
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindAssigned,
+			Kind:      prx.EventKindAssigned,
 			Actor:     systemNote.Author.Username,
 			Target:    target,
 		}
 	case strings.HasPrefix(body, "unassigned"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindUnassigned,
+			Kind:      prx.EventKindUnassigned,
 			Actor:     systemNote.Author.Username,
 		}
 	case strings.HasPrefix(body, "added") && strings.Contains(body, "label"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp:   systemNote.CreatedAt,
-			Kind:        types.EventKindLabeled,
+			Kind:        prx.EventKindLabeled,
 			Actor:       systemNote.Author.Username,
 			Description: systemNote.Body,
 		}
 	case strings.HasPrefix(body, "removed") && strings.Contains(body, "label"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp:   systemNote.CreatedAt,
-			Kind:        types.EventKindUnlabeled,
+			Kind:        prx.EventKindUnlabeled,
 			Actor:       systemNote.Author.Username,
 			Description: systemNote.Body,
 		}
 	case strings.HasPrefix(body, "marked as a draft"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindConvertToDraft,
+			Kind:      prx.EventKindConvertToDraft,
 			Actor:     systemNote.Author.Username,
 		}
 	case strings.HasPrefix(body, "marked this merge request as ready"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindReadyForReview,
+			Kind:      prx.EventKindReadyForReview,
 			Actor:     systemNote.Author.Username,
 		}
 	case strings.HasPrefix(body, "changed target branch"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp:   systemNote.CreatedAt,
-			Kind:        types.EventKindBaseRefChanged,
+			Kind:        prx.EventKindBaseRefChanged,
 			Actor:       systemNote.Author.Username,
 			Description: systemNote.Body,
 		}
 	case strings.HasPrefix(body, "mentioned in"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp:   systemNote.CreatedAt,
-			Kind:        types.EventKindCrossReferenced,
+			Kind:        prx.EventKindCrossReferenced,
 			Actor:       systemNote.Author.Username,
 			Description: systemNote.Body,
 		}
 	case strings.HasPrefix(body, "closed"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindClosed,
+			Kind:      prx.EventKindClosed,
 			Actor:     systemNote.Author.Username,
 		}
 	case strings.HasPrefix(body, "reopened"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp: systemNote.CreatedAt,
-			Kind:      types.EventKindReopened,
+			Kind:      prx.EventKindReopened,
 			Actor:     systemNote.Author.Username,
 		}
 	case strings.HasPrefix(body, "changed title"):
-		return &types.Event{
+		return &prx.Event{
 			Timestamp:   systemNote.CreatedAt,
-			Kind:        types.EventKindRenamedTitle,
+			Kind:        prx.EventKindRenamedTitle,
 			Actor:       systemNote.Author.Username,
 			Description: systemNote.Body,
 		}
 	default:
 		// Unknown system note - include as a generic comment.
-		return &types.Event{
+		return &prx.Event{
 			Timestamp:   systemNote.CreatedAt,
-			Kind:        types.EventKindComment,
+			Kind:        prx.EventKindComment,
 			Actor:       systemNote.Author.Username,
 			Body:        systemNote.Body,
 			Description: "system",
@@ -848,8 +848,8 @@ func convertSystemNote(systemNote *note) *types.Event {
 	}
 }
 
-func convertPipeline(p *pipeline) []types.Event {
-	var events []types.Event
+func convertPipeline(p *pipeline) []prx.Event {
+	var events []prx.Event
 
 	// Add pipeline started event.
 	if p.StartedAt != nil {
@@ -857,9 +857,9 @@ func convertPipeline(p *pipeline) []types.Event {
 		if p.Status == "running" {
 			status = "running"
 		}
-		events = append(events, types.Event{
+		events = append(events, prx.Event{
 			Timestamp:   *p.StartedAt,
-			Kind:        types.EventKindCheckRun,
+			Kind:        prx.EventKindCheckRun,
 			Body:        fmt.Sprintf("pipeline-%d", p.ID),
 			Outcome:     status,
 			Bot:         true,
@@ -870,9 +870,9 @@ func convertPipeline(p *pipeline) []types.Event {
 	// Add pipeline completed event.
 	if p.FinishedAt != nil {
 		outcome := convertPipelineStatus(p.Status)
-		events = append(events, types.Event{
+		events = append(events, prx.Event{
 			Timestamp:   *p.FinishedAt,
-			Kind:        types.EventKindCheckRun,
+			Kind:        prx.EventKindCheckRun,
 			Body:        fmt.Sprintf("pipeline-%d", p.ID),
 			Outcome:     outcome,
 			Bot:         true,

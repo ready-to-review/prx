@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 // Test helper function
@@ -29,7 +29,7 @@ func TestPlatform_Name(t *testing.T) {
 		{
 			name:    "codeberg",
 			baseURL: "https://codeberg.org",
-			want:    types.PlatformCodeberg,
+			want:    prx.PlatformCodeberg,
 		},
 		{
 			name:    "self-hosted gitea",
@@ -50,8 +50,8 @@ func TestPlatform_Name(t *testing.T) {
 
 func TestNewCodebergPlatform(t *testing.T) {
 	p := NewCodebergPlatform("test-token")
-	if p.Name() != types.PlatformCodeberg {
-		t.Errorf("NewCodebergPlatform().Name() = %q, want %q", p.Name(), types.PlatformCodeberg)
+	if p.Name() != prx.PlatformCodeberg {
+		t.Errorf("NewCodebergPlatform().Name() = %q, want %q", p.Name(), prx.PlatformCodeberg)
 	}
 }
 
@@ -227,11 +227,11 @@ func TestPlatform_FetchPR(t *testing.T) {
 	if len(pr.Reviewers) != 2 {
 		t.Errorf("len(Reviewers) = %d, want 2", len(pr.Reviewers))
 	}
-	if pr.Reviewers["reviewer1"] != types.ReviewStatePending {
-		t.Errorf("Reviewers[reviewer1] = %v, want %v", pr.Reviewers["reviewer1"], types.ReviewStatePending)
+	if pr.Reviewers["reviewer1"] != prx.ReviewStatePending {
+		t.Errorf("Reviewers[reviewer1] = %v, want %v", pr.Reviewers["reviewer1"], prx.ReviewStatePending)
 	}
-	if pr.Reviewers["reviewer2"] != types.ReviewStateApproved {
-		t.Errorf("Reviewers[reviewer2] = %v, want %v", pr.Reviewers["reviewer2"], types.ReviewStateApproved)
+	if pr.Reviewers["reviewer2"] != prx.ReviewStateApproved {
+		t.Errorf("Reviewers[reviewer2] = %v, want %v", pr.Reviewers["reviewer2"], prx.ReviewStateApproved)
 	}
 
 	// Verify events
@@ -244,7 +244,7 @@ func TestPlatform_FetchPR(t *testing.T) {
 	for _, e := range data.Events {
 		eventTypes[e.Kind] = true
 	}
-	expectedTypes := []string{types.EventKindPROpened, types.EventKindCommit, types.EventKindReview, types.EventKindComment, types.EventKindLabeled}
+	expectedTypes := []string{prx.EventKindPROpened, prx.EventKindCommit, prx.EventKindReview, prx.EventKindComment, prx.EventKindLabeled}
 	for _, et := range expectedTypes {
 		if !eventTypes[et] {
 			t.Errorf("Missing event type %q in events", et)
@@ -323,7 +323,7 @@ func TestPlatform_FetchPR_Merged(t *testing.T) {
 	// Check for merged event
 	hasMergedEvent := false
 	for _, e := range data.Events {
-		if e.Kind == types.EventKindPRMerged {
+		if e.Kind == prx.EventKindPRMerged {
 			hasMergedEvent = true
 			if e.Actor != "merger" {
 				t.Errorf("Merged event actor = %q, want %q", e.Actor, "merger")
@@ -418,18 +418,18 @@ func TestPlatform_FetchPR_APIError(t *testing.T) {
 func TestConvertReviewState(t *testing.T) {
 	tests := []struct {
 		input string
-		want  types.ReviewState
+		want  prx.ReviewState
 	}{
-		{"APPROVED", types.ReviewStateApproved},
-		{"approved", types.ReviewStateApproved},
-		{"REQUEST_CHANGES", types.ReviewStateChangesRequested},
-		{"request_changes", types.ReviewStateChangesRequested},
-		{"COMMENT", types.ReviewStateCommented},
-		{"comment", types.ReviewStateCommented},
-		{"PENDING", types.ReviewStatePending},
-		{"pending", types.ReviewStatePending},
-		{"unknown", types.ReviewStatePending},
-		{"", types.ReviewStatePending},
+		{"APPROVED", prx.ReviewStateApproved},
+		{"approved", prx.ReviewStateApproved},
+		{"REQUEST_CHANGES", prx.ReviewStateChangesRequested},
+		{"request_changes", prx.ReviewStateChangesRequested},
+		{"COMMENT", prx.ReviewStateCommented},
+		{"comment", prx.ReviewStateCommented},
+		{"PENDING", prx.ReviewStatePending},
+		{"pending", prx.ReviewStatePending},
+		{"unknown", prx.ReviewStatePending},
+		{"", prx.ReviewStatePending},
 	}
 
 	for _, tt := range tests {
@@ -481,13 +481,13 @@ func TestConvertTimelineEvent(t *testing.T) {
 		{
 			name:      "label event",
 			event:     timelineEvent{Type: "label", CreatedAt: now, User: testUser, Label: testLabel},
-			wantKind:  types.EventKindLabeled,
+			wantKind:  prx.EventKindLabeled,
 			wantActor: "testuser",
 		},
 		{
 			name:      "unlabel event",
 			event:     timelineEvent{Type: "unlabel", CreatedAt: now, User: testUser, Label: testLabel},
-			wantKind:  types.EventKindUnlabeled,
+			wantKind:  prx.EventKindUnlabeled,
 			wantActor: "testuser",
 		},
 		{
@@ -498,55 +498,55 @@ func TestConvertTimelineEvent(t *testing.T) {
 		{
 			name:      "assignees event",
 			event:     timelineEvent{Type: "assignees", CreatedAt: now, User: testUser, Assignee: testAssignee},
-			wantKind:  types.EventKindAssigned,
+			wantKind:  prx.EventKindAssigned,
 			wantActor: "testuser",
 		},
 		{
 			name:      "unassignees event",
 			event:     timelineEvent{Type: "unassignees", CreatedAt: now, User: testUser, Assignee: testAssignee},
-			wantKind:  types.EventKindUnassigned,
+			wantKind:  prx.EventKindUnassigned,
 			wantActor: "testuser",
 		},
 		{
 			name:      "review_requested event",
 			event:     timelineEvent{Type: "review_requested", CreatedAt: now, User: testUser, Assignee: testAssignee},
-			wantKind:  types.EventKindReviewRequested,
+			wantKind:  prx.EventKindReviewRequested,
 			wantActor: "testuser",
 		},
 		{
 			name:      "close event",
 			event:     timelineEvent{Type: "close", CreatedAt: now, User: testUser},
-			wantKind:  types.EventKindClosed,
+			wantKind:  prx.EventKindClosed,
 			wantActor: "testuser",
 		},
 		{
 			name:      "reopen event",
 			event:     timelineEvent{Type: "reopen", CreatedAt: now, User: testUser},
-			wantKind:  types.EventKindReopened,
+			wantKind:  prx.EventKindReopened,
 			wantActor: "testuser",
 		},
 		{
 			name:      "change_title event",
 			event:     timelineEvent{Type: "change_title", CreatedAt: now, User: testUser, Body: "old -> new"},
-			wantKind:  types.EventKindRenamedTitle,
+			wantKind:  prx.EventKindRenamedTitle,
 			wantActor: "testuser",
 		},
 		{
 			name:      "change_ref event",
 			event:     timelineEvent{Type: "change_ref", CreatedAt: now, User: testUser, OldRef: "old", NewRef: "new"},
-			wantKind:  types.EventKindBaseRefChanged,
+			wantKind:  prx.EventKindBaseRefChanged,
 			wantActor: "testuser",
 		},
 		{
 			name:      "merge event",
 			event:     timelineEvent{Type: "merge", CreatedAt: now, User: testUser},
-			wantKind:  types.EventKindMerged,
+			wantKind:  prx.EventKindMerged,
 			wantActor: "testuser",
 		},
 		{
 			name:      "comment_ref event",
 			event:     timelineEvent{Type: "comment_ref", CreatedAt: now, User: testUser},
-			wantKind:  types.EventKindCrossReferenced,
+			wantKind:  prx.EventKindCrossReferenced,
 			wantActor: "testuser",
 		},
 		{
@@ -557,7 +557,7 @@ func TestConvertTimelineEvent(t *testing.T) {
 		{
 			name:      "event without user",
 			event:     timelineEvent{Type: "close", CreatedAt: now},
-			wantKind:  types.EventKindClosed,
+			wantKind:  prx.EventKindClosed,
 			wantActor: "",
 		},
 	}
@@ -675,10 +675,10 @@ func TestConvertPullRequest(t *testing.T) {
 	if len(result.Assignees) != 2 {
 		t.Errorf("len(Assignees) = %d, want 2", len(result.Assignees))
 	}
-	if result.Reviewers["reviewer"] != types.ReviewStatePending {
+	if result.Reviewers["reviewer"] != prx.ReviewStatePending {
 		t.Errorf("Reviewers[reviewer] = %v, want pending", result.Reviewers["reviewer"])
 	}
-	if result.Reviewers["approver"] != types.ReviewStateApproved {
+	if result.Reviewers["approver"] != prx.ReviewStateApproved {
 		t.Errorf("Reviewers[approver] = %v, want approved", result.Reviewers["approver"])
 	}
 	if result.MergeableState != "clean" {
@@ -712,7 +712,7 @@ func TestConvertPullRequest_StaleReview(t *testing.T) {
 	if _, exists := result.Reviewers["reviewer2"]; exists {
 		t.Error("Dismissed review should not update reviewer state")
 	}
-	if result.Reviewers["reviewer3"] != types.ReviewStateApproved {
+	if result.Reviewers["reviewer3"] != prx.ReviewStateApproved {
 		t.Errorf("Reviewers[reviewer3] = %v, want approved", result.Reviewers["reviewer3"])
 	}
 }

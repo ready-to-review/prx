@@ -128,7 +128,7 @@ func TestClient_PullRequestWithCheckRuns(t *testing.T) {
 	defer server.Close()
 
 	platform := NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 555)
@@ -239,7 +239,7 @@ func TestClient_PullRequestWithBranchProtection(t *testing.T) {
 	defer server.Close()
 
 	platform := NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 
 	ctx := context.Background()
 	prData, err := client.PullRequest(ctx, "testowner", "testrepo", 666)

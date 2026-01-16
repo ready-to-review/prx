@@ -1,4 +1,4 @@
-package types
+package prx
 
 import (
 	"testing"
@@ -557,7 +557,7 @@ func TestCalculateParticipantAccess(t *testing.T) {
 			},
 		},
 		{
-			name: "handles empty assignee names",
+			name:   "handles empty assignee names",
 			events: []Event{},
 			pr: &PullRequest{
 				Author:    "author1",

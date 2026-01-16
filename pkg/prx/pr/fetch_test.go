@@ -1,16 +1,16 @@
-package fetch_test
+package pr_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx/fetch"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/pr"
 )
 
 func TestPullRequest_InvalidURL(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := fetch.PullRequest(ctx, "not-a-valid-url")
+	_, err := pr.Fetch(ctx, "not-a-valid-url")
 	if err == nil {
 		t.Error("expected error for invalid URL, got nil")
 	}
@@ -19,7 +19,7 @@ func TestPullRequest_InvalidURL(t *testing.T) {
 func TestPullRequest_EmptyURL(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := fetch.PullRequest(ctx, "")
+	_, err := pr.Fetch(ctx, "")
 	if err == nil {
 		t.Error("expected error for empty URL, got nil")
 	}

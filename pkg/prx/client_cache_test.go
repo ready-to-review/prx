@@ -88,7 +88,7 @@ func TestCacheClient(t *testing.T) {
 		t.Fatalf("Failed to create cache store: %v", err)
 	}
 	platform := github.NewTestPlatform("test-token", server.URL)
-	client := prx.NewClientWithPlatform(platform,
+	client := prx.NewClient(platform,
 		prx.WithCacheStore(store),
 		prx.WithLogger(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))),
 	)
