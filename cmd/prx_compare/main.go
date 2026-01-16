@@ -14,6 +14,7 @@ import (
 
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 const (
@@ -63,7 +64,7 @@ func main() {
 	fmt.Println("\nFull data saved to rest_output.json and graphql_output.json")
 }
 
-func comparePullRequestData(rest, graphql *prx.PullRequestData) {
+func comparePullRequestData(rest, graphql *types.PullRequestData) {
 	// Compare PullRequest fields
 	fmt.Println("=== Pull Request Metadata ===")
 	comparePullRequest(&rest.PullRequest, &graphql.PullRequest)
@@ -73,7 +74,7 @@ func comparePullRequestData(rest, graphql *prx.PullRequestData) {
 	compareEvents(rest.Events, graphql.Events)
 }
 
-func comparePullRequest(rest, graphql *prx.PullRequest) {
+func comparePullRequest(rest, graphql *types.PullRequest) {
 	differences, matches := compareFields(rest, graphql)
 
 	if len(differences) > 0 {
@@ -86,7 +87,7 @@ func comparePullRequest(rest, graphql *prx.PullRequest) {
 	fmt.Printf("\nMatching fields: %s\n", strings.Join(matches, ", "))
 }
 
-func compareFields(rest, graphql *prx.PullRequest) (differences, matches []string) {
+func compareFields(rest, graphql *types.PullRequest) (differences, matches []string) {
 	restVal := reflect.ValueOf(*rest)
 	graphqlVal := reflect.ValueOf(*graphql)
 	restType := restVal.Type()
@@ -131,7 +132,7 @@ func comparePointerField(name string, restField, graphqlField reflect.Value) str
 	return ""
 }
 
-func compareCheckSummary(rest, graphql *prx.PullRequest) {
+func compareCheckSummary(rest, graphql *types.PullRequest) {
 	if rest.CheckSummary == nil || graphql.CheckSummary == nil {
 		return
 	}
@@ -149,7 +150,7 @@ func compareCheckSummary(rest, graphql *prx.PullRequest) {
 	compareCheckSummaryMaps(rest.CheckSummary, graphql.CheckSummary)
 }
 
-func compareCheckSummaryMaps(rest, graphql *prx.CheckSummary) {
+func compareCheckSummaryMaps(rest, graphql *types.CheckSummary) {
 	compareSummaryMap("Success", rest.Success, graphql.Success)
 	compareSummaryMap("Failing", rest.Failing, graphql.Failing)
 	compareSummaryMap("Pending", rest.Pending, graphql.Pending)
@@ -186,7 +187,7 @@ func compareStatusMaps(rest, graphql map[string]string) {
 	}
 }
 
-func compareEvents(restEvents, graphqlEvents []prx.Event) {
+func compareEvents(restEvents, graphqlEvents []types.Event) {
 	// Count events by type
 	restCounts := countEventsByType(restEvents)
 	graphqlCounts := countEventsByType(graphqlEvents)
@@ -200,13 +201,13 @@ func compareEvents(restEvents, graphqlEvents []prx.Event) {
 		allTypes[k] = true
 	}
 
-	var types []string
+	var eventTypes []string
 	for t := range allTypes {
-		types = append(types, t)
+		eventTypes = append(eventTypes, t)
 	}
-	sort.Strings(types)
+	sort.Strings(eventTypes)
 
-	for _, eventType := range types {
+	for _, eventType := range eventTypes {
 		restCount := restCounts[eventType]
 		graphqlCount := graphqlCounts[eventType]
 		if restCount != graphqlCount {
@@ -226,7 +227,7 @@ func compareEvents(restEvents, graphqlEvents []prx.Event) {
 	restByType := groupEventsByType(restEvents)
 	graphqlByType := groupEventsByType(graphqlEvents)
 
-	for _, eventType := range types {
+	for _, eventType := range eventTypes {
 		restTypeEvents := restByType[eventType]
 		graphqlTypeEvents := graphqlByType[eventType]
 
@@ -294,7 +295,7 @@ func compareEvents(restEvents, graphqlEvents []prx.Event) {
 	}
 }
 
-func countEventsByType(events []prx.Event) map[string]int {
+func countEventsByType(events []types.Event) map[string]int {
 	counts := make(map[string]int)
 	for i := range events {
 		counts[events[i].Kind]++
@@ -302,15 +303,15 @@ func countEventsByType(events []prx.Event) map[string]int {
 	return counts
 }
 
-func groupEventsByType(events []prx.Event) map[string][]prx.Event {
-	grouped := make(map[string][]prx.Event)
+func groupEventsByType(events []types.Event) map[string][]types.Event {
+	grouped := make(map[string][]types.Event)
 	for i := range events {
 		grouped[events[i].Kind] = append(grouped[events[i].Kind], events[i])
 	}
 	return grouped
 }
 
-func extractWriteAccess(events []prx.Event) map[string]int {
+func extractWriteAccess(events []types.Event) map[string]int {
 	access := make(map[string]int)
 	for i := range events {
 		e := &events[i]
@@ -324,7 +325,7 @@ func extractWriteAccess(events []prx.Event) map[string]int {
 	return access
 }
 
-func extractBots(events []prx.Event) map[string]bool {
+func extractBots(events []types.Event) map[string]bool {
 	bots := make(map[string]bool)
 	for i := range events {
 		e := &events[i]

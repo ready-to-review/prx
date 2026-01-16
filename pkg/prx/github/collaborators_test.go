@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 
 	"github.com/codeGROOVE-dev/fido"
 )
@@ -22,16 +22,16 @@ func TestPermissionToWriteAccess(t *testing.T) {
 		permission string
 		expected   int
 	}{
-		{"admin", prx.WriteAccessDefinitely},
-		{"maintain", prx.WriteAccessDefinitely},
-		{"write", prx.WriteAccessDefinitely},
-		{"read", prx.WriteAccessNo},
-		{"triage", prx.WriteAccessNo},
-		{"none", prx.WriteAccessNo},
-		{"", prx.WriteAccessUnlikely},          // Not in collaborators list
-		{"unknown", prx.WriteAccessUnlikely},   // Unknown permission
-		{"ADMIN", prx.WriteAccessUnlikely},     // Case sensitive - not matched
-		{"something", prx.WriteAccessUnlikely}, // Invalid permission
+		{"admin", types.WriteAccessDefinitely},
+		{"maintain", types.WriteAccessDefinitely},
+		{"write", types.WriteAccessDefinitely},
+		{"read", types.WriteAccessNo},
+		{"triage", types.WriteAccessNo},
+		{"none", types.WriteAccessNo},
+		{"", types.WriteAccessUnlikely},          // Not in collaborators list
+		{"unknown", types.WriteAccessUnlikely},   // Unknown permission
+		{"ADMIN", types.WriteAccessUnlikely},     // Case sensitive - not matched
+		{"something", types.WriteAccessUnlikely}, // Invalid permission
 	}
 
 	for _, tt := range tests {
@@ -40,11 +40,11 @@ func TestPermissionToWriteAccess(t *testing.T) {
 			var result int
 			switch tt.permission {
 			case "admin", "maintain", "write":
-				result = prx.WriteAccessDefinitely
+				result = types.WriteAccessDefinitely
 			case "read", "triage", "none":
-				result = prx.WriteAccessNo
+				result = types.WriteAccessNo
 			default:
-				result = prx.WriteAccessUnlikely
+				result = types.WriteAccessUnlikely
 			}
 			if result != tt.expected {
 				t.Errorf("permission mapping for %q = %d, want %d",
@@ -105,37 +105,37 @@ func TestWriteAccessFromAssociationWithCache(t *testing.T) {
 			name:       "member with admin permission",
 			user:       "alice",
 			permission: "admin",
-			expected:   prx.WriteAccessDefinitely,
+			expected:   types.WriteAccessDefinitely,
 		},
 		{
 			name:       "member with write permission",
 			user:       "bob",
 			permission: "write",
-			expected:   prx.WriteAccessDefinitely,
+			expected:   types.WriteAccessDefinitely,
 		},
 		{
 			name:       "member with maintain permission",
 			user:       "charlie",
 			permission: "maintain",
-			expected:   prx.WriteAccessDefinitely,
+			expected:   types.WriteAccessDefinitely,
 		},
 		{
 			name:       "member with read permission",
 			user:       "david",
 			permission: "read",
-			expected:   prx.WriteAccessNo,
+			expected:   types.WriteAccessNo,
 		},
 		{
 			name:       "member with triage permission",
 			user:       "eve",
 			permission: "triage",
-			expected:   prx.WriteAccessNo,
+			expected:   types.WriteAccessNo,
 		},
 		{
 			name:       "member not in collaborators list",
 			user:       "frank",
 			permission: "", // Not in the cache
-			expected:   prx.WriteAccessUnlikely,
+			expected:   types.WriteAccessUnlikely,
 		},
 	}
 
@@ -197,9 +197,9 @@ func TestWriteAccessFromAssociationCacheHit(t *testing.T) {
 	}
 
 	result := p.writeAccessFromAssociation(ctx, "codeGROOVE-dev", "goose", "tstromberg", "MEMBER")
-	if result != prx.WriteAccessDefinitely {
+	if result != types.WriteAccessDefinitely {
 		t.Errorf("writeAccessFromAssociation(MEMBER, tstromberg) = %d, want %d",
-			result, prx.WriteAccessDefinitely)
+			result, types.WriteAccessDefinitely)
 	}
 }
 
@@ -219,12 +219,12 @@ func TestWriteAccessFromAssociationNonMember(t *testing.T) {
 		association string
 		expected    int
 	}{
-		{"OWNER", prx.WriteAccessDefinitely},
-		{"COLLABORATOR", prx.WriteAccessDefinitely},
-		{"CONTRIBUTOR", prx.WriteAccessUnlikely},
-		{"NONE", prx.WriteAccessUnlikely},
-		{"FIRST_TIME_CONTRIBUTOR", prx.WriteAccessUnlikely},
-		{"FIRST_TIMER", prx.WriteAccessUnlikely},
+		{"OWNER", types.WriteAccessDefinitely},
+		{"COLLABORATOR", types.WriteAccessDefinitely},
+		{"CONTRIBUTOR", types.WriteAccessUnlikely},
+		{"NONE", types.WriteAccessUnlikely},
+		{"FIRST_TIME_CONTRIBUTOR", types.WriteAccessUnlikely},
+		{"FIRST_TIMER", types.WriteAccessUnlikely},
 	}
 
 	for _, tt := range tests {

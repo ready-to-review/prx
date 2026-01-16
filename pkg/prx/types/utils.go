@@ -1,4 +1,4 @@
-package prx
+package types
 
 import (
 	"regexp"
@@ -145,17 +145,6 @@ func ContainsQuestion(text string) bool {
 	}
 
 	return false
-}
-
-func isHexString(s string) bool {
-	for i := range s {
-		c := s[i]
-		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
-			continue
-		}
-		return false
-	}
-	return true
 }
 
 // Truncate returns the first maxTruncateLength characters of s.

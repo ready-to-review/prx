@@ -13,6 +13,9 @@ issues:
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
+  exclude-rules:
+    - path: pkg/prx/types/
+      text: "var-naming: avoid meaningless package names"
 
 formatters:
   enable:
@@ -188,6 +191,8 @@ linters:
           disabled: true
         - name: bare-return
           disabled: true
+        - name: var-naming
+          disabled: true # types is a perfectly valid package name
 
     rowserrcheck:
       # database/sql is always checked.

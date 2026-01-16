@@ -12,17 +12,18 @@ import (
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitea"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitlab"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
-// Fetch automatically detects the platform from a PR/MR URL, resolves authentication,
+// PullRequest automatically detects the platform from a PR/MR URL, resolves authentication,
 // and fetches the pull request data. This is the simplest way to use prx.
 //
 // Example:
 //
-//	data, err := fetch.Fetch(ctx, "https://github.com/owner/repo/pull/123")
-//	data, err := fetch.Fetch(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
-//	data, err := fetch.Fetch(ctx, "https://codeberg.org/owner/repo/pulls/789")
-//	data, err := fetch.Fetch(ctx, "https://gitea.example.com/owner/repo/pulls/100")
+//	data, err := fetch.PullRequest(ctx, "https://github.com/owner/repo/pull/123")
+//	data, err := fetch.PullRequest(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
+//	data, err := fetch.PullRequest(ctx, "https://codeberg.org/owner/repo/pulls/789")
+//	data, err := fetch.PullRequest(ctx, "https://gitea.example.com/owner/repo/pulls/100")
 //
 // The function will:
 //   - Parse the URL to detect platform, owner, repo, and PR number
@@ -39,9 +40,9 @@ import (
 // Unknown hosts default to Gitea unless the URL indicates GitHub or GitLab.
 //
 // Use WithOptions to pass additional client configuration options.
-func Fetch(ctx context.Context, url string, opts ...prx.Option) (*prx.PullRequestData, error) {
+func PullRequest(ctx context.Context, url string, opts ...prx.Option) (*types.PullRequestData, error) {
 	// Parse URL to get platform, owner, repo, PR number
-	parsed, err := prx.ParseURL(url)
+	parsed, err := types.ParseURL(url)
 	if err != nil {
 		return nil, fmt.Errorf("parsing URL: %w", err)
 	}
@@ -55,13 +56,13 @@ func Fetch(ctx context.Context, url string, opts ...prx.Option) (*prx.PullReques
 	}
 
 	// Create platform-specific client
-	var platform prx.Platform
+	var platform types.Platform
 	switch parsed.Platform {
-	case prx.PlatformGitHub:
+	case types.PlatformGitHub:
 		platform = github.NewPlatform(token.Value)
-	case prx.PlatformGitLab:
+	case types.PlatformGitLab:
 		platform = gitlab.NewPlatform(token.Value, gitlab.WithBaseURL("https://"+parsed.Host))
-	case prx.PlatformCodeberg:
+	case types.PlatformCodeberg:
 		platform = gitea.NewCodebergPlatform(token.Value)
 	default:
 		// Default to Gitea for unknown platforms
@@ -77,11 +78,4 @@ func Fetch(ctx context.Context, url string, opts ...prx.Option) (*prx.PullReques
 	}()
 
 	return client.PullRequest(ctx, parsed.Owner, parsed.Repo, parsed.Number)
-}
-
-// WithOptions is an alias for Fetch for backwards compatibility.
-//
-// Deprecated: Use Fetch directly, which now accepts options.
-func WithOptions(ctx context.Context, url string, opts ...prx.Option) (*prx.PullRequestData, error) {
-	return Fetch(ctx, url, opts...)
 }

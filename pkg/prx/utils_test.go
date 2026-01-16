@@ -3,12 +3,14 @@ package prx
 import (
 	"reflect"
 	"testing"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 	tests := []struct {
 		name              string
-		events            []Event
+		events            []types.Event
 		requiredChecks    []string
 		expectedSuccess   map[string]string
 		expectedFailing   map[string]string
@@ -20,7 +22,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 	}{
 		{
 			name: "mixed statuses with descriptions",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "check_run",
 					Body:        "build",
@@ -64,7 +66,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 		},
 		{
 			name: "missing required checks marked as pending",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:    "check_run",
 					Body:    "build",
@@ -87,7 +89,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 		},
 		{
 			name: "action_required counted as failure",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "check_run",
 					Body:        "deploy",
@@ -108,7 +110,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 		},
 		{
 			name: "cancelled and skipped statuses",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "check_run",
 					Body:        "optional-check",
@@ -137,7 +139,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 		},
 		{
 			name: "duplicate check names use latest",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "check_run",
 					Body:        "test",
@@ -164,7 +166,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 		},
 		{
 			name:            "no events with required checks",
-			events:          []Event{},
+			events:          []types.Event{},
 			requiredChecks:  []string{"build", "test"},
 			expectedSuccess: map[string]string{},
 			expectedFailing: map[string]string{},
@@ -181,7 +183,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			summary := CalculateCheckSummary(tt.events, tt.requiredChecks)
+			summary := types.CalculateCheckSummary(tt.events, tt.requiredChecks)
 
 			if !reflect.DeepEqual(summary.Success, tt.expectedSuccess) {
 				t.Errorf("Success mismatch\ngot:  %v\nwant: %v", summary.Success, tt.expectedSuccess)
@@ -210,7 +212,7 @@ func TestCalculateCheckSummaryWithMaps(t *testing.T) {
 
 func TestCheckSummaryInitialization(t *testing.T) {
 	// Test that maps are properly initialized even with no events
-	summary := CalculateCheckSummary([]Event{}, []string{})
+	summary := types.CalculateCheckSummary([]types.Event{}, []string{})
 
 	if summary.Success == nil {
 		t.Error("Success map should be initialized, not nil")
@@ -248,7 +250,7 @@ func TestCheckSummaryInitialization(t *testing.T) {
 func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 	tests := []struct {
 		name                      string
-		events                    []Event
+		events                    []types.Event
 		expectedWithAccess        int
 		expectedWithUnknownAccess int
 		expectedWithoutAccess     int
@@ -256,12 +258,12 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 	}{
 		{
 			name: "approval with definite write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "owner-user",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessDefinitely,
+					WriteAccess: types.WriteAccessDefinitely,
 				},
 			},
 			expectedWithAccess:        1,
@@ -270,13 +272,13 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 			expectedChangesRequested:  0,
 		},
 		{
-			name: "approval with unknown write access (WriteAccessUnlikely)",
-			events: []Event{
+			name: "approval with unknown write access (types.WriteAccessUnlikely)",
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "external-contributor",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessUnlikely,
+					WriteAccess: types.WriteAccessUnlikely,
 				},
 			},
 			expectedWithAccess:        0,
@@ -286,12 +288,12 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 		},
 		{
 			name: "approval with likely write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "member-user",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessLikely,
+					WriteAccess: types.WriteAccessLikely,
 				},
 			},
 			expectedWithAccess:        0,
@@ -301,12 +303,12 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 		},
 		{
 			name: "approval with NA write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "unknown-user",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessNA,
+					WriteAccess: types.WriteAccessNA,
 				},
 			},
 			expectedWithAccess:        0,
@@ -316,12 +318,12 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 		},
 		{
 			name: "approval with confirmed no write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "blocked-user",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessNo,
+					WriteAccess: types.WriteAccessNo,
 				},
 			},
 			expectedWithAccess:        0,
@@ -331,30 +333,30 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 		},
 		{
 			name: "mixed approvals with different write access levels",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "owner",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessDefinitely,
+					WriteAccess: types.WriteAccessDefinitely,
 				},
 				{
 					Kind:        "review",
 					Actor:       "contributor",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessUnlikely,
+					WriteAccess: types.WriteAccessUnlikely,
 				},
 				{
 					Kind:        "review",
 					Actor:       "member",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessLikely,
+					WriteAccess: types.WriteAccessLikely,
 				},
 				{
 					Kind:        "review",
 					Actor:       "blocked",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessNo,
+					WriteAccess: types.WriteAccessNo,
 				},
 			},
 			expectedWithAccess:        1,
@@ -364,18 +366,18 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 		},
 		{
 			name: "latest review overrides previous (approval then changes_requested)",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "reviewer",
 					Outcome:     "approved",
-					WriteAccess: WriteAccessDefinitely,
+					WriteAccess: types.WriteAccessDefinitely,
 				},
 				{
 					Kind:        "review",
 					Actor:       "reviewer",
 					Outcome:     "changes_requested",
-					WriteAccess: WriteAccessDefinitely,
+					WriteAccess: types.WriteAccessDefinitely,
 				},
 			},
 			expectedWithAccess:        0,
@@ -385,12 +387,12 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 		},
 		{
 			name: "commented reviews ignored",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "commenter",
 					Outcome:     "commented",
-					WriteAccess: WriteAccessDefinitely,
+					WriteAccess: types.WriteAccessDefinitely,
 				},
 			},
 			expectedWithAccess:        0,
@@ -402,7 +404,7 @@ func TestCalculateApprovalSummaryWriteAccessCategories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			summary := CalculateApprovalSummary(tt.events)
+			summary := types.CalculateApprovalSummary(tt.events)
 
 			if summary.ApprovalsWithWriteAccess != tt.expectedWithAccess {
 				t.Errorf("ApprovalsWithWriteAccess: got %d, want %d",
@@ -428,7 +430,7 @@ func TestCheckSummaryCancelledNotInFailing(t *testing.T) {
 	// Regression test: cancelled checks should only appear in cancelled map, not in failing map
 	// This was a bug where cancelled checks appeared in both maps
 	// Based on real-world scenario from https://github.com/codeGROOVE-dev/goose/pull/65
-	events := []Event{
+	events := []types.Event{
 		{
 			Kind:        "check_run",
 			Body:        "Kusari Inspector",
@@ -458,7 +460,7 @@ func TestCheckSummaryCancelledNotInFailing(t *testing.T) {
 		},
 	}
 
-	summary := CalculateCheckSummary(events, []string{})
+	summary := types.CalculateCheckSummary(events, []string{})
 
 	// Verify cancelled check is ONLY in cancelled map
 	if _, exists := summary.Cancelled["Test (macos-latest)"]; !exists {

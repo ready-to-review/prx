@@ -3,6 +3,8 @@ package prx
 import (
 	"strings"
 	"testing"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 //nolint:maintidx // Table-driven test with many security test cases
@@ -10,7 +12,7 @@ func TestParseURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		want     *ParsedURL
+		want     *types.ParsedURL
 		wantErr  bool
 		errMatch string
 	}{
@@ -18,8 +20,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "github full URL with https",
 			input: "https://github.com/owner/repo/pull/123",
-			want: &ParsedURL{
-				Platform: PlatformGitHub,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitHub,
 				Host:     "github.com",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -29,8 +31,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "github URL without scheme",
 			input: "github.com/owner/repo/pull/456",
-			want: &ParsedURL{
-				Platform: PlatformGitHub,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitHub,
 				Host:     "github.com",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -40,8 +42,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "github URL with http",
 			input: "http://github.com/kubernetes/kubernetes/pull/99999",
-			want: &ParsedURL{
-				Platform: PlatformGitHub,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitHub,
 				Host:     "github.com",
 				Owner:    "kubernetes",
 				Repo:     "kubernetes",
@@ -51,8 +53,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "github URL with dashes in names",
 			input: "https://github.com/my-org/my-repo/pull/1",
-			want: &ParsedURL{
-				Platform: PlatformGitHub,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitHub,
 				Host:     "github.com",
 				Owner:    "my-org",
 				Repo:     "my-repo",
@@ -64,8 +66,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "gitlab.com MR URL",
 			input: "https://gitlab.com/owner/repo/-/merge_requests/123",
-			want: &ParsedURL{
-				Platform: PlatformGitLab,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitLab,
 				Host:     "gitlab.com",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -75,8 +77,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "self-hosted gitlab MR URL",
 			input: "https://gitlab.example.com/team/project/-/merge_requests/456",
-			want: &ParsedURL{
-				Platform: PlatformGitLab,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitLab,
 				Host:     "gitlab.example.com",
 				Owner:    "team",
 				Repo:     "project",
@@ -88,8 +90,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "codeberg PR URL",
 			input: "https://codeberg.org/owner/repo/pulls/123",
-			want: &ParsedURL{
-				Platform: PlatformCodeberg,
+			want: &types.ParsedURL{
+				Platform: types.PlatformCodeberg,
 				Host:     "codeberg.org",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -99,8 +101,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "codeberg URL without scheme",
 			input: "codeberg.org/forgejo/forgejo/pulls/789",
-			want: &ParsedURL{
-				Platform: PlatformCodeberg,
+			want: &types.ParsedURL{
+				Platform: types.PlatformCodeberg,
 				Host:     "codeberg.org",
 				Owner:    "forgejo",
 				Repo:     "forgejo",
@@ -112,7 +114,7 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "generic gitea URL",
 			input: "https://gitea.example.com/owner/repo/pulls/123",
-			want: &ParsedURL{
+			want: &types.ParsedURL{
 				Platform: "gitea",
 				Host:     "gitea.example.com",
 				Owner:    "owner",
@@ -123,7 +125,7 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "unknown host defaults to gitea",
 			input: "https://code.mycompany.com/team/project/pulls/456",
-			want: &ParsedURL{
+			want: &types.ParsedURL{
 				Platform: "gitea",
 				Host:     "code.mycompany.com",
 				Owner:    "team",
@@ -136,8 +138,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "github URL with fragment",
 			input: "https://github.com/owner/repo/pull/123#issuecomment-456",
-			want: &ParsedURL{
-				Platform: PlatformGitHub,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitHub,
 				Host:     "github.com",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -147,8 +149,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "github URL with query params",
 			input: "https://github.com/owner/repo/pull/123?foo=bar&baz=qux",
-			want: &ParsedURL{
-				Platform: PlatformGitHub,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitHub,
 				Host:     "github.com",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -158,8 +160,8 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "gitlab URL with fragment and query",
 			input: "https://gitlab.com/owner/repo/-/merge_requests/456?tab=notes#note_789",
-			want: &ParsedURL{
-				Platform: PlatformGitLab,
+			want: &types.ParsedURL{
+				Platform: types.PlatformGitLab,
 				Host:     "gitlab.com",
 				Owner:    "owner",
 				Repo:     "repo",
@@ -169,7 +171,7 @@ func TestParseURL(t *testing.T) {
 		{
 			name:  "gitea URL with query params",
 			input: "https://gitea.example.com/owner/repo/pulls/100?state=open",
-			want: &ParsedURL{
+			want: &types.ParsedURL{
 				Platform: "gitea",
 				Host:     "gitea.example.com",
 				Owner:    "owner",
@@ -231,21 +233,21 @@ func TestParseURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseURL(tt.input)
+			got, err := types.ParseURL(tt.input)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ParseURL() expected error containing %q, got nil", tt.errMatch)
+					t.Errorf("types.ParseURL() expected error containing %q, got nil", tt.errMatch)
 					return
 				}
 				if tt.errMatch != "" && !strings.Contains(err.Error(), tt.errMatch) {
-					t.Errorf("ParseURL() error = %q, want error containing %q", err.Error(), tt.errMatch)
+					t.Errorf("types.ParseURL() error = %q, want error containing %q", err.Error(), tt.errMatch)
 				}
 				return
 			}
 
 			if err != nil {
-				t.Errorf("ParseURL() unexpected error: %v", err)
+				t.Errorf("types.ParseURL() unexpected error: %v", err)
 				return
 			}
 
@@ -273,22 +275,23 @@ func TestDetectPlatform(t *testing.T) {
 		host string
 		want string
 	}{
-		{"github.com", PlatformGitHub},
-		{"GITHUB.COM", PlatformGitHub},
-		{"api.github.com", PlatformGitHub},
-		{"gitlab.com", PlatformGitLab},
-		{"gitlab.example.com", PlatformGitLab},
-		{"my-gitlab.internal", PlatformGitLab},
-		{"codeberg.org", PlatformCodeberg},
+		{"github.com", types.PlatformGitHub},
+		{"GITHUB.COM", types.PlatformGitHub},
+		{"api.github.com", types.PlatformGitHub},
+		{"gitlab.com", types.PlatformGitLab},
+		{"gitlab.example.com", types.PlatformGitLab},
+		{"my-gitlab.internal", types.PlatformGitLab},
+		{"codeberg.org", types.PlatformCodeberg},
 		{"example.com", ""},
 		{"bitbucket.org", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.host, func(t *testing.T) {
-			got := DetectPlatform(tt.host)
+			//nolint:staticcheck // Testing deprecated function
+			got := types.DetectPlatform(tt.host)
 			if got != tt.want {
-				t.Errorf("DetectPlatform(%q) = %q, want %q", tt.host, got, tt.want)
+				t.Errorf("types.DetectPlatform(%q) = %q, want %q", tt.host, got, tt.want)
 			}
 		})
 	}
@@ -299,13 +302,13 @@ func TestDetectPlatformFromHost(t *testing.T) {
 		host string
 		want string
 	}{
-		{"github.com", PlatformGitHub},
-		{"GITHUB.COM", PlatformGitHub},
-		{"api.github.com", PlatformGitHub},
-		{"gitlab.com", PlatformGitLab},
-		{"gitlab.example.com", PlatformGitLab},
-		{"my-gitlab.internal", PlatformGitLab},
-		{"codeberg.org", PlatformCodeberg},
+		{"github.com", types.PlatformGitHub},
+		{"GITHUB.COM", types.PlatformGitHub},
+		{"api.github.com", types.PlatformGitHub},
+		{"gitlab.com", types.PlatformGitLab},
+		{"gitlab.example.com", types.PlatformGitLab},
+		{"my-gitlab.internal", types.PlatformGitLab},
+		{"codeberg.org", types.PlatformCodeberg},
 		{"example.com", "gitea"},       // Unknown defaults to gitea
 		{"bitbucket.org", "gitea"},     // Unknown defaults to gitea
 		{"gitea.example.com", "gitea"}, // Unknown defaults to gitea
@@ -313,7 +316,7 @@ func TestDetectPlatformFromHost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.host, func(t *testing.T) {
-			got := detectPlatformFromHost(tt.host)
+			got := types.DetectPlatformFromHost(tt.host)
 			if got != tt.want {
 				t.Errorf("detectPlatformFromHost(%q) = %q, want %q", tt.host, got, tt.want)
 			}
@@ -323,50 +326,50 @@ func TestDetectPlatformFromHost(t *testing.T) {
 
 func TestBuildURLs(t *testing.T) {
 	t.Run("GitHub", func(t *testing.T) {
-		got := BuildGitHubURL("owner", "repo", 123)
+		got := types.BuildGitHubURL("owner", "repo", 123)
 		want := "https://github.com/owner/repo/pull/123"
 		if got != want {
-			t.Errorf("BuildGitHubURL() = %q, want %q", got, want)
+			t.Errorf("types.BuildGitHubURL() = %q, want %q", got, want)
 		}
 	})
 
 	t.Run("GitLab default host", func(t *testing.T) {
-		got := BuildGitLabURL("", "owner", "repo", 456)
+		got := types.BuildGitLabURL("", "owner", "repo", 456)
 		want := "https://gitlab.com/owner/repo/-/merge_requests/456"
 		if got != want {
-			t.Errorf("BuildGitLabURL() = %q, want %q", got, want)
+			t.Errorf("types.BuildGitLabURL() = %q, want %q", got, want)
 		}
 	})
 
 	t.Run("GitLab custom host", func(t *testing.T) {
-		got := BuildGitLabURL("gitlab.example.com", "team", "project", 789)
+		got := types.BuildGitLabURL("gitlab.example.com", "team", "project", 789)
 		want := "https://gitlab.example.com/team/project/-/merge_requests/789"
 		if got != want {
-			t.Errorf("BuildGitLabURL() = %q, want %q", got, want)
+			t.Errorf("types.BuildGitLabURL() = %q, want %q", got, want)
 		}
 	})
 
 	t.Run("Codeberg", func(t *testing.T) {
-		got := BuildCodebergURL("forgejo", "forgejo", 999)
+		got := types.BuildCodebergURL("forgejo", "forgejo", 999)
 		want := "https://codeberg.org/forgejo/forgejo/pulls/999"
 		if got != want {
-			t.Errorf("BuildCodebergURL() = %q, want %q", got, want)
+			t.Errorf("types.BuildCodebergURL() = %q, want %q", got, want)
 		}
 	})
 
 	t.Run("Gitea default host", func(t *testing.T) {
-		got := BuildGiteaURL("", "owner", "repo", 123)
+		got := types.BuildGiteaURL("", "owner", "repo", 123)
 		want := "https://codeberg.org/owner/repo/pulls/123"
 		if got != want {
-			t.Errorf("BuildGiteaURL() = %q, want %q", got, want)
+			t.Errorf("types.BuildGiteaURL() = %q, want %q", got, want)
 		}
 	})
 
 	t.Run("Gitea custom host", func(t *testing.T) {
-		got := BuildGiteaURL("gitea.example.com", "team", "project", 456)
+		got := types.BuildGiteaURL("gitea.example.com", "team", "project", 456)
 		want := "https://gitea.example.com/team/project/pulls/456"
 		if got != want {
-			t.Errorf("BuildGiteaURL() = %q, want %q", got, want)
+			t.Errorf("types.BuildGiteaURL() = %q, want %q", got, want)
 		}
 	})
 }
@@ -397,19 +400,19 @@ func TestNormalizeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NormalizeURL(tt.input)
+			got, err := types.NormalizeURL(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Error("NormalizeURL() expected error, got nil")
+					t.Error("types.NormalizeURL() expected error, got nil")
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("NormalizeURL() unexpected error: %v", err)
+				t.Errorf("types.NormalizeURL() unexpected error: %v", err)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("NormalizeURL() = %q, want %q", got, tt.want)
+				t.Errorf("types.NormalizeURL() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -429,9 +432,9 @@ func TestIsValidPRURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := IsValidPRURL(tt.input)
+			got := types.IsValidPRURL(tt.input)
 			if got != tt.want {
-				t.Errorf("IsValidPRURL(%q) = %v, want %v", tt.input, got, tt.want)
+				t.Errorf("types.IsValidPRURL(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -450,19 +453,19 @@ func TestExtractShortRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := ExtractShortRef(tt.input)
+			got, err := types.ExtractShortRef(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Error("ExtractShortRef() expected error, got nil")
+					t.Error("types.ExtractShortRef() expected error, got nil")
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("ExtractShortRef() unexpected error: %v", err)
+				t.Errorf("types.ExtractShortRef() unexpected error: %v", err)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ExtractShortRef() = %q, want %q", got, tt.want)
+				t.Errorf("types.ExtractShortRef() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -517,15 +520,15 @@ func TestParseShortRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseShortRef(tt.ref)
+			got, err := types.ParseShortRef(tt.ref)
 			if tt.wantErr {
 				if err == nil {
-					t.Error("ParseShortRef() expected error, got nil")
+					t.Error("types.ParseShortRef() expected error, got nil")
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("ParseShortRef() unexpected error: %v", err)
+				t.Errorf("types.ParseShortRef() unexpected error: %v", err)
 				return
 			}
 			if got.Owner != tt.wantOwner {
@@ -557,7 +560,7 @@ func TestParseOwnerRepoPR(t *testing.T) {
 			wantOwner:    "owner",
 			wantRepo:     "repo",
 			wantNumber:   123,
-			wantPlatform: PlatformGitHub,
+			wantPlatform: types.PlatformGitHub,
 		},
 		{
 			name:         "short ref with hash",
@@ -581,7 +584,7 @@ func TestParseOwnerRepoPR(t *testing.T) {
 			wantOwner:    "team",
 			wantRepo:     "project",
 			wantNumber:   999,
-			wantPlatform: PlatformGitLab,
+			wantPlatform: types.PlatformGitLab,
 		},
 		{
 			name:    "invalid",
@@ -592,15 +595,15 @@ func TestParseOwnerRepoPR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseOwnerRepoPR(tt.input)
+			got, err := types.ParseOwnerRepoPR(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Error("ParseOwnerRepoPR() expected error, got nil")
+					t.Error("types.ParseOwnerRepoPR() expected error, got nil")
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("ParseOwnerRepoPR() unexpected error: %v", err)
+				t.Errorf("types.ParseOwnerRepoPR() unexpected error: %v", err)
 				return
 			}
 			if got.Owner != tt.wantOwner {

@@ -1,4 +1,4 @@
-package prx
+package types
 
 import (
 	"errors"
@@ -111,7 +111,7 @@ func ParseURL(input string) (*ParsedURL, error) {
 		host := match[1]
 
 		// Detect platform from host if possible
-		platform := detectPlatformFromHost(host)
+		platform := DetectPlatformFromHost(host)
 
 		return &ParsedURL{
 			Platform: platform,
@@ -136,8 +136,8 @@ func ParseURL(input string) (*ParsedURL, error) {
 	return nil, errors.New("unrecognized URL format")
 }
 
-// detectPlatformFromHost detects platform from hostname, defaulting to Gitea for unknown hosts.
-func detectPlatformFromHost(host string) string {
+// DetectPlatformFromHost detects platform from hostname, defaulting to Gitea for unknown hosts.
+func DetectPlatformFromHost(host string) string {
 	host = strings.ToLower(host)
 
 	switch {

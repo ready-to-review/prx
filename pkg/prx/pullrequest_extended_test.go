@@ -3,6 +3,8 @@ package prx
 import (
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 func TestFinalizePullRequest(t *testing.T) {
@@ -10,8 +12,8 @@ func TestFinalizePullRequest(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		pr               PullRequest
-		events           []Event
+		pr               types.PullRequest
+		events           []types.Event
 		requiredChecks   []string
 		testStateFromAPI string
 		wantTestState    string
@@ -20,30 +22,30 @@ func TestFinalizePullRequest(t *testing.T) {
 	}{
 		{
 			name: "blocked pr without approvals",
-			pr: PullRequest{
+			pr: types.PullRequest{
 				Number:         1,
 				MergeableState: "blocked",
 			},
-			events:           []Event{},
+			events:           []types.Event{},
 			requiredChecks:   []string{},
 			testStateFromAPI: "",
-			wantTestState:    TestStateNone,
+			wantTestState:    types.TestStateNone,
 			wantMergeable:    boolPtr(false),
 			wantDescContains: "requires approval",
 		},
 		{
 			name: "clean pr ready to merge",
-			pr: PullRequest{
+			pr: types.PullRequest{
 				Number:         1,
 				MergeableState: "clean",
 			},
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Actor:       "reviewer",
 					Timestamp:   now,
 					Outcome:     "APPROVED",
-					WriteAccess: WriteAccessDefinitely,
+					WriteAccess: types.WriteAccessDefinitely,
 				},
 				{
 					Kind:      "status_check",
@@ -54,16 +56,16 @@ func TestFinalizePullRequest(t *testing.T) {
 			},
 			requiredChecks:   []string{"test"},
 			testStateFromAPI: "passing",
-			wantTestState:    TestStatePassing,
+			wantTestState:    types.TestStatePassing,
 			wantDescContains: "ready to merge",
 		},
 		{
 			name: "unstable pr with failing checks",
-			pr: PullRequest{
+			pr: types.PullRequest{
 				Number:         1,
 				MergeableState: "unstable",
 			},
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:      "status_check",
 					Timestamp: now,
@@ -73,52 +75,52 @@ func TestFinalizePullRequest(t *testing.T) {
 			},
 			requiredChecks:   []string{"test"},
 			testStateFromAPI: "failing",
-			wantTestState:    TestStateFailing,
+			wantTestState:    types.TestStateFailing,
 			wantDescContains: "status checks are failing",
 		},
 		{
 			name: "dirty pr with merge conflicts",
-			pr: PullRequest{
+			pr: types.PullRequest{
 				Number:         1,
 				MergeableState: "dirty",
 			},
-			events:           []Event{},
+			events:           []types.Event{},
 			requiredChecks:   []string{},
 			testStateFromAPI: "",
-			wantTestState:    TestStateNone,
+			wantTestState:    types.TestStateNone,
 			wantMergeable:    boolPtr(false),
 			wantDescContains: "merge conflicts",
 		},
 		{
 			name: "draft pr",
-			pr: PullRequest{
+			pr: types.PullRequest{
 				Number:         1,
 				MergeableState: "draft",
 				Draft:          true,
 			},
-			events:           []Event{},
+			events:           []types.Event{},
 			requiredChecks:   []string{},
 			testStateFromAPI: "",
-			wantTestState:    TestStateNone,
+			wantTestState:    types.TestStateNone,
 			wantDescContains: "draft state",
 		},
 		{
 			name: "unknown mergeable state",
-			pr: PullRequest{
+			pr: types.PullRequest{
 				Number:         1,
 				MergeableState: "unknown",
 			},
-			events:           []Event{},
+			events:           []types.Event{},
 			requiredChecks:   []string{},
 			testStateFromAPI: "",
-			wantTestState:    TestStateNone,
+			wantTestState:    types.TestStateNone,
 			wantDescContains: "being calculated",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			FinalizePullRequest(&tt.pr, tt.events, tt.requiredChecks, tt.testStateFromAPI)
+			types.FinalizePullRequest(&tt.pr, tt.events, tt.requiredChecks, tt.testStateFromAPI)
 
 			if tt.pr.TestState != tt.wantTestState {
 				t.Errorf("TestState = %v, want %v", tt.pr.TestState, tt.wantTestState)
@@ -147,54 +149,54 @@ func TestFinalizePullRequest(t *testing.T) {
 func TestFixTestState(t *testing.T) {
 	tests := []struct {
 		name          string
-		checkSummary  *CheckSummary
+		checkSummary  *types.CheckSummary
 		wantTestState string
 	}{
 		{
 			name: "failing checks",
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{"test1": "failed"},
 				Success: map[string]string{"test2": "passed"},
 			},
-			wantTestState: TestStateFailing,
+			wantTestState: types.TestStateFailing,
 		},
 		{
 			name: "cancelled checks",
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Cancelled: map[string]string{"test1": "cancelled"},
 			},
-			wantTestState: TestStateFailing,
+			wantTestState: types.TestStateFailing,
 		},
 		{
 			name: "pending checks",
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Pending: map[string]string{"test1": "pending"},
 				Success: map[string]string{"test2": "passed"},
 			},
-			wantTestState: TestStatePending,
+			wantTestState: types.TestStatePending,
 		},
 		{
 			name: "only success checks",
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Success: map[string]string{"test1": "passed", "test2": "passed"},
 			},
-			wantTestState: TestStatePassing,
+			wantTestState: types.TestStatePassing,
 		},
 		{
 			name: "no checks",
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Success: map[string]string{},
 			},
-			wantTestState: TestStateNone,
+			wantTestState: types.TestStateNone,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pr := &PullRequest{
+			pr := &types.PullRequest{
 				CheckSummary: tt.checkSummary,
 			}
-			FixTestState(pr)
+			types.FixTestState(pr)
 			if pr.TestState != tt.wantTestState {
 				t.Errorf("TestState = %v, want %v", pr.TestState, tt.wantTestState)
 			}
@@ -206,18 +208,18 @@ func TestSetMergeableDescription(t *testing.T) {
 	tests := []struct {
 		name             string
 		mergeableState   string
-		checkSummary     *CheckSummary
-		approvalSummary  *ApprovalSummary
+		checkSummary     *types.CheckSummary
+		approvalSummary  *types.ApprovalSummary
 		wantDescContains string
 	}{
 		{
 			name:           "blocked state without approvals",
 			mergeableState: "blocked",
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{},
 				Pending: map[string]string{},
 			},
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 0,
 			},
 			wantDescContains: "requires approval",
@@ -256,18 +258,18 @@ func TestSetMergeableDescription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pr := &PullRequest{
+			pr := &types.PullRequest{
 				MergeableState:  tt.mergeableState,
 				CheckSummary:    tt.checkSummary,
 				ApprovalSummary: tt.approvalSummary,
 			}
 			if pr.CheckSummary == nil {
-				pr.CheckSummary = &CheckSummary{}
+				pr.CheckSummary = &types.CheckSummary{}
 			}
 			if pr.ApprovalSummary == nil {
-				pr.ApprovalSummary = &ApprovalSummary{}
+				pr.ApprovalSummary = &types.ApprovalSummary{}
 			}
-			setMergeableDescription(pr)
+			types.SetMergeableDescription(pr)
 			if tt.wantDescContains == "" {
 				if pr.MergeableStateDescription != "" {
 					t.Errorf("Expected empty description for unknown state, got %q", pr.MergeableStateDescription)
@@ -283,16 +285,16 @@ func TestSetMergeableDescription(t *testing.T) {
 func TestSetBlockedDescription(t *testing.T) {
 	tests := []struct {
 		name             string
-		approvalSummary  *ApprovalSummary
-		checkSummary     *CheckSummary
+		approvalSummary  *types.ApprovalSummary
+		checkSummary     *types.CheckSummary
 		wantDescContains string
 	}{
 		{
 			name: "no approvals, no checks",
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 0,
 			},
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{},
 				Pending: map[string]string{},
 			},
@@ -300,10 +302,10 @@ func TestSetBlockedDescription(t *testing.T) {
 		},
 		{
 			name: "no approvals with pending checks",
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 0,
 			},
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{},
 				Pending: map[string]string{"test": "pending"},
 			},
@@ -311,30 +313,30 @@ func TestSetBlockedDescription(t *testing.T) {
 		},
 		{
 			name: "failing checks without approval",
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 0,
 			},
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{"test": "failed"},
 			},
 			wantDescContains: "failing status checks and requires approval",
 		},
 		{
 			name: "failing checks with approval",
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 1,
 			},
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{"test": "failed"},
 			},
 			wantDescContains: "blocked by failing status checks",
 		},
 		{
 			name: "pending checks only",
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 1,
 			},
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{},
 				Pending: map[string]string{"test": "pending"},
 			},
@@ -342,10 +344,10 @@ func TestSetBlockedDescription(t *testing.T) {
 		},
 		{
 			name: "has approvals but still blocked",
-			approvalSummary: &ApprovalSummary{
+			approvalSummary: &types.ApprovalSummary{
 				ApprovalsWithWriteAccess: 1,
 			},
-			checkSummary: &CheckSummary{
+			checkSummary: &types.CheckSummary{
 				Failing: map[string]string{},
 				Pending: map[string]string{},
 			},
@@ -355,12 +357,12 @@ func TestSetBlockedDescription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pr := &PullRequest{
+			pr := &types.PullRequest{
 				MergeableState:  "blocked",
 				ApprovalSummary: tt.approvalSummary,
 				CheckSummary:    tt.checkSummary,
 			}
-			setBlockedDescription(pr)
+			types.SetBlockedDescription(pr)
 			if !contains(pr.MergeableStateDescription, tt.wantDescContains) {
 				t.Errorf("MergeableStateDescription = %q, want to contain %q",
 					pr.MergeableStateDescription, tt.wantDescContains)
