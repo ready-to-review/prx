@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/codeGROOVE-dev/fido"
-	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 // Cache TTL constants.
@@ -115,13 +115,13 @@ func NewCodebergPlatform(token string, opts ...Option) *Platform {
 // Name returns the platform identifier.
 func (p *Platform) Name() string {
 	if strings.Contains(p.baseURL, "codeberg.org") {
-		return prx.PlatformCodeberg
+		return types.PlatformCodeberg
 	}
 	return "gitea"
 }
 
 // FetchPR retrieves a pull request with all events and metadata.
-func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
+func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
 	p.logger.Info("fetching pull request via Gitea REST API",
 		"owner", owner, "repo", repo, "pr", number)
 
@@ -165,9 +165,9 @@ func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, 
 	})
 
 	// Finalize with calculated summaries.
-	prx.FinalizePullRequest(&pullRequest, events, nil, "")
+	types.FinalizePullRequest(&pullRequest, events, nil, "")
 
-	return &prx.PullRequestData{
+	return &types.PullRequestData{
 		CachedAt:    time.Now(),
 		PullRequest: pullRequest,
 		Events:      events,
@@ -439,8 +439,8 @@ func (p *Platform) doRequest(ctx context.Context, url string, result any) (err e
 
 // Conversion methods.
 
-func convertPullRequest(pr *pullRequest, reviews []review) prx.PullRequest {
-	result := prx.PullRequest{
+func convertPullRequest(pr *pullRequest, reviews []review) types.PullRequest {
+	result := types.PullRequest{
 		Number:       pr.Number,
 		Title:        pr.Title,
 		Body:         pr.Body,
@@ -476,9 +476,9 @@ func convertPullRequest(pr *pullRequest, reviews []review) prx.PullRequest {
 	}
 
 	// Set reviewers with their states.
-	result.Reviewers = make(map[string]prx.ReviewState)
+	result.Reviewers = make(map[string]types.ReviewState)
 	for _, r := range pr.RequestedReviewers {
-		result.Reviewers[r.Login] = prx.ReviewStatePending
+		result.Reviewers[r.Login] = types.ReviewStatePending
 	}
 
 	// Update reviewer states from reviews.
@@ -503,16 +503,16 @@ func convertPullRequest(pr *pullRequest, reviews []review) prx.PullRequest {
 	return result
 }
 
-func convertReviewState(state string) prx.ReviewState {
+func convertReviewState(state string) types.ReviewState {
 	switch strings.ToUpper(state) {
 	case "APPROVED":
-		return prx.ReviewStateApproved
+		return types.ReviewStateApproved
 	case "REQUEST_CHANGES":
-		return prx.ReviewStateChangesRequested
+		return types.ReviewStateChangesRequested
 	case "COMMENT":
-		return prx.ReviewStateCommented
+		return types.ReviewStateCommented
 	default:
-		return prx.ReviewStatePending
+		return types.ReviewStatePending
 	}
 }
 
@@ -522,13 +522,13 @@ func convertToEvents(
 	comments []comment,
 	commits []commit,
 	timeline []timelineEvent,
-) []prx.Event {
-	var events []prx.Event
+) []types.Event {
+	var events []types.Event
 
 	// Add PR opened event.
-	events = append(events, prx.Event{
+	events = append(events, types.Event{
 		Timestamp: pr.CreatedAt,
-		Kind:      prx.EventKindPROpened,
+		Kind:      types.EventKindPROpened,
 		Actor:     pr.User.Login,
 	})
 
@@ -542,9 +542,9 @@ func convertToEvents(
 		if idx := strings.IndexByte(msg, '\n'); idx >= 0 {
 			msg = msg[:idx]
 		}
-		events = append(events, prx.Event{
+		events = append(events, types.Event{
 			Timestamp:   commits[i].Commit.Author.Date,
-			Kind:        prx.EventKindCommit,
+			Kind:        types.EventKindCommit,
 			Actor:       actor,
 			Body:        commits[i].SHA[:7],
 			Description: msg,
@@ -553,25 +553,25 @@ func convertToEvents(
 
 	// Add review events.
 	for i := range reviews {
-		events = append(events, prx.Event{
+		events = append(events, types.Event{
 			Timestamp: reviews[i].SubmittedAt,
-			Kind:      prx.EventKindReview,
+			Kind:      types.EventKindReview,
 			Actor:     reviews[i].User.Login,
 			Outcome:   convertReviewOutcome(reviews[i].State),
 			Body:      reviews[i].Body,
-			Question:  prx.ContainsQuestion(reviews[i].Body),
+			Question:  types.ContainsQuestion(reviews[i].Body),
 			Outdated:  reviews[i].Stale || reviews[i].Dismissed,
 		})
 	}
 
 	// Add comment events.
 	for i := range comments {
-		events = append(events, prx.Event{
+		events = append(events, types.Event{
 			Timestamp: comments[i].CreatedAt,
-			Kind:      prx.EventKindComment,
+			Kind:      types.EventKindComment,
 			Actor:     comments[i].User.Login,
 			Body:      comments[i].Body,
-			Question:  prx.ContainsQuestion(comments[i].Body),
+			Question:  types.ContainsQuestion(comments[i].Body),
 		})
 	}
 
@@ -589,15 +589,15 @@ func convertToEvents(
 		if pr.MergedBy != nil {
 			actor = pr.MergedBy.Login
 		}
-		events = append(events, prx.Event{
+		events = append(events, types.Event{
 			Timestamp: *pr.MergedAt,
-			Kind:      prx.EventKindPRMerged,
+			Kind:      types.EventKindPRMerged,
 			Actor:     actor,
 		})
 	} else if pr.ClosedAt != nil && pr.State == "closed" {
-		events = append(events, prx.Event{
+		events = append(events, types.Event{
 			Timestamp: *pr.ClosedAt,
-			Kind:      prx.EventKindPRClosed,
+			Kind:      types.EventKindPRClosed,
 		})
 	}
 
@@ -617,7 +617,7 @@ func convertReviewOutcome(state string) string {
 	}
 }
 
-func convertTimelineEvent(event *timelineEvent) *prx.Event {
+func convertTimelineEvent(event *timelineEvent) *types.Event {
 	actor := ""
 	if event.User != nil {
 		actor = event.User.Login
@@ -628,9 +628,9 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 		if event.Label == nil {
 			return nil
 		}
-		return &prx.Event{
+		return &types.Event{
 			Timestamp:   event.CreatedAt,
-			Kind:        prx.EventKindLabeled,
+			Kind:        types.EventKindLabeled,
 			Actor:       actor,
 			Description: event.Label.Name,
 		}
@@ -638,9 +638,9 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 		if event.Label == nil {
 			return nil
 		}
-		return &prx.Event{
+		return &types.Event{
 			Timestamp:   event.CreatedAt,
-			Kind:        prx.EventKindUnlabeled,
+			Kind:        types.EventKindUnlabeled,
 			Actor:       actor,
 			Description: event.Label.Name,
 		}
@@ -648,9 +648,9 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 		if event.Assignee == nil {
 			return nil
 		}
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindAssigned,
+			Kind:      types.EventKindAssigned,
 			Actor:     actor,
 			Target:    event.Assignee.Login,
 		}
@@ -658,9 +658,9 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 		if event.Assignee == nil {
 			return nil
 		}
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindUnassigned,
+			Kind:      types.EventKindUnassigned,
 			Actor:     actor,
 			Target:    event.Assignee.Login,
 		}
@@ -669,9 +669,9 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 		if event.Assignee != nil {
 			target = event.Assignee.Login
 		}
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindReviewRequested,
+			Kind:      types.EventKindReviewRequested,
 			Actor:     actor,
 			Target:    target,
 		}
@@ -680,48 +680,48 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 		if event.Assignee != nil {
 			target = event.Assignee.Login
 		}
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindReviewRequestRemoved,
+			Kind:      types.EventKindReviewRequestRemoved,
 			Actor:     actor,
 			Target:    target,
 		}
 	case "close":
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindClosed,
+			Kind:      types.EventKindClosed,
 			Actor:     actor,
 		}
 	case "reopen":
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindReopened,
+			Kind:      types.EventKindReopened,
 			Actor:     actor,
 		}
 	case "change_title":
-		return &prx.Event{
+		return &types.Event{
 			Timestamp:   event.CreatedAt,
-			Kind:        prx.EventKindRenamedTitle,
+			Kind:        types.EventKindRenamedTitle,
 			Actor:       actor,
 			Description: event.Body,
 		}
 	case "change_ref":
-		return &prx.Event{
+		return &types.Event{
 			Timestamp:   event.CreatedAt,
-			Kind:        prx.EventKindBaseRefChanged,
+			Kind:        types.EventKindBaseRefChanged,
 			Actor:       actor,
 			Description: fmt.Sprintf("%s -> %s", event.OldRef, event.NewRef),
 		}
 	case "merge":
-		return &prx.Event{
+		return &types.Event{
 			Timestamp: event.CreatedAt,
-			Kind:      prx.EventKindMerged,
+			Kind:      types.EventKindMerged,
 			Actor:     actor,
 		}
 	case "comment_ref", "issue_ref", "pull_ref":
-		return &prx.Event{
+		return &types.Event{
 			Timestamp:   event.CreatedAt,
-			Kind:        prx.EventKindCrossReferenced,
+			Kind:        types.EventKindCrossReferenced,
 			Actor:       actor,
 			Description: event.Body,
 		}

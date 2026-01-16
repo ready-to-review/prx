@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 func TestPlatform_Name(t *testing.T) {
 	p := NewPlatform("token")
-	if got := p.Name(); got != prx.PlatformGitLab {
-		t.Errorf("Name() = %q, want %q", got, prx.PlatformGitLab)
+	if got := p.Name(); got != types.PlatformGitLab {
+		t.Errorf("Name() = %q, want %q", got, types.PlatformGitLab)
 	}
 }
 
@@ -225,8 +225,8 @@ func TestPlatform_FetchPR(t *testing.T) {
 	if pr.HeadSHA != "abc123def456" {
 		t.Errorf("HeadSHA = %q, want %q", pr.HeadSHA, "abc123def456")
 	}
-	if pr.TestState != prx.TestStatePassing {
-		t.Errorf("TestState = %q, want %q", pr.TestState, prx.TestStatePassing)
+	if pr.TestState != types.TestStatePassing {
+		t.Errorf("TestState = %q, want %q", pr.TestState, types.TestStatePassing)
 	}
 
 	// Verify labels
@@ -240,8 +240,8 @@ func TestPlatform_FetchPR(t *testing.T) {
 	}
 
 	// Verify reviewers
-	if pr.Reviewers["approver1"] != prx.ReviewStateApproved {
-		t.Errorf("Reviewers[approver1] = %v, want %v", pr.Reviewers["approver1"], prx.ReviewStateApproved)
+	if pr.Reviewers["approver1"] != types.ReviewStateApproved {
+		t.Errorf("Reviewers[approver1] = %v, want %v", pr.Reviewers["approver1"], types.ReviewStateApproved)
 	}
 
 	// Verify commits
@@ -259,7 +259,7 @@ func TestPlatform_FetchPR(t *testing.T) {
 	for _, e := range data.Events {
 		eventTypes[e.Kind] = true
 	}
-	expectedTypes := []string{prx.EventKindPROpened, prx.EventKindCommit, prx.EventKindComment}
+	expectedTypes := []string{types.EventKindPROpened, types.EventKindCommit, types.EventKindComment}
 	for _, et := range expectedTypes {
 		if !eventTypes[et] {
 			t.Errorf("Missing event type %q in events", et)
@@ -342,7 +342,7 @@ func TestPlatform_FetchPR_Merged(t *testing.T) {
 	// Check for merged event
 	hasMergedEvent := false
 	for _, e := range data.Events {
-		if e.Kind == prx.EventKindPRMerged {
+		if e.Kind == types.EventKindPRMerged {
 			hasMergedEvent = true
 			if e.Actor != "merger" {
 				t.Errorf("Merged event actor = %q, want %q", e.Actor, "merger")
@@ -476,8 +476,8 @@ func TestPlatform_FetchPR_FailingPipeline(t *testing.T) {
 		t.Fatalf("FetchPR() error = %v", err)
 	}
 
-	if data.PullRequest.TestState != prx.TestStateFailing {
-		t.Errorf("TestState = %q, want %q", data.PullRequest.TestState, prx.TestStateFailing)
+	if data.PullRequest.TestState != types.TestStateFailing {
+		t.Errorf("TestState = %q, want %q", data.PullRequest.TestState, types.TestStateFailing)
 	}
 }
 
@@ -560,11 +560,11 @@ func TestConvertState(t *testing.T) {
 func TestConvertReviewerState(t *testing.T) {
 	tests := []struct {
 		input string
-		want  prx.ReviewState
+		want  types.ReviewState
 	}{
-		{"reviewed", prx.ReviewStateCommented},
-		{"unreviewed", prx.ReviewStatePending},
-		{"", prx.ReviewStatePending},
+		{"reviewed", types.ReviewStateCommented},
+		{"unreviewed", types.ReviewStatePending},
+		{"", types.ReviewStatePending},
 	}
 
 	for _, tt := range tests {
@@ -582,18 +582,18 @@ func TestConvertPipelineToTestState(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"success", prx.TestStatePassing},
-		{"failed", prx.TestStateFailing},
-		{"running", prx.TestStateRunning},
-		{"pending", prx.TestStatePending},
-		{"waiting_for_resource", prx.TestStatePending},
-		{"preparing", prx.TestStatePending},
-		{"created", prx.TestStateQueued},
-		{"scheduled", prx.TestStateQueued},
-		{"canceled", prx.TestStateNone},
-		{"skipped", prx.TestStateNone},
-		{"manual", prx.TestStateNone},
-		{"unknown", prx.TestStateNone},
+		{"success", types.TestStatePassing},
+		{"failed", types.TestStateFailing},
+		{"running", types.TestStateRunning},
+		{"pending", types.TestStatePending},
+		{"waiting_for_resource", types.TestStatePending},
+		{"preparing", types.TestStatePending},
+		{"created", types.TestStateQueued},
+		{"scheduled", types.TestStateQueued},
+		{"canceled", types.TestStateNone},
+		{"skipped", types.TestStateNone},
+		{"manual", types.TestStateNone},
+		{"unknown", types.TestStateNone},
 	}
 
 	for _, tt := range tests {
@@ -749,77 +749,77 @@ func TestConvertSystemNote(t *testing.T) {
 		{
 			name:     "approved",
 			n:        &note{Body: "approved this merge request", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindReview,
+			wantKind: types.EventKindReview,
 		},
 		{
 			name:     "unapproved",
 			n:        &note{Body: "unapproved this merge request", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindReview,
+			wantKind: types.EventKindReview,
 		},
 		{
 			name:     "requested review",
 			n:        &note{Body: "requested review from @reviewer", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindReviewRequested,
+			wantKind: types.EventKindReviewRequested,
 		},
 		{
 			name:     "assigned",
 			n:        &note{Body: "assigned to @assignee", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindAssigned,
+			wantKind: types.EventKindAssigned,
 		},
 		{
 			name:     "unassigned",
 			n:        &note{Body: "unassigned @user", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindUnassigned,
+			wantKind: types.EventKindUnassigned,
 		},
 		{
 			name:     "added label",
 			n:        &note{Body: "added ~bug label", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindLabeled,
+			wantKind: types.EventKindLabeled,
 		},
 		{
 			name:     "removed label",
 			n:        &note{Body: "removed ~bug label", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindUnlabeled,
+			wantKind: types.EventKindUnlabeled,
 		},
 		{
 			name:     "marked as draft",
 			n:        &note{Body: "marked as a draft", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindConvertToDraft,
+			wantKind: types.EventKindConvertToDraft,
 		},
 		{
 			name:     "marked ready",
 			n:        &note{Body: "marked this merge request as ready", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindReadyForReview,
+			wantKind: types.EventKindReadyForReview,
 		},
 		{
 			name:     "changed target branch",
 			n:        &note{Body: "changed target branch from main to develop", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindBaseRefChanged,
+			wantKind: types.EventKindBaseRefChanged,
 		},
 		{
 			name:     "mentioned in",
 			n:        &note{Body: "mentioned in issue #123", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindCrossReferenced,
+			wantKind: types.EventKindCrossReferenced,
 		},
 		{
 			name:     "closed",
 			n:        &note{Body: "closed", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindClosed,
+			wantKind: types.EventKindClosed,
 		},
 		{
 			name:     "reopened",
 			n:        &note{Body: "reopened", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindReopened,
+			wantKind: types.EventKindReopened,
 		},
 		{
 			name:     "changed title",
 			n:        &note{Body: "changed title from old to new", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindRenamedTitle,
+			wantKind: types.EventKindRenamedTitle,
 		},
 		{
 			name:     "unknown system note",
 			n:        &note{Body: "some unknown system action", Author: author, CreatedAt: now, System: true},
-			wantKind: prx.EventKindComment,
+			wantKind: types.EventKindComment,
 		},
 	}
 
@@ -854,8 +854,8 @@ func TestConvertNote(t *testing.T) {
 			System:    false,
 		}
 		got := convertNote(n)
-		if got.Kind != prx.EventKindComment {
-			t.Errorf("Kind = %q, want %q", got.Kind, prx.EventKindComment)
+		if got.Kind != types.EventKindComment {
+			t.Errorf("Kind = %q, want %q", got.Kind, types.EventKindComment)
 		}
 		if got.Actor != "commenter" {
 			t.Errorf("Actor = %q, want %q", got.Actor, "commenter")
@@ -897,8 +897,8 @@ func TestConvertNote(t *testing.T) {
 			System:    true,
 		}
 		got := convertNote(n)
-		if got.Kind != prx.EventKindReview {
-			t.Errorf("Kind = %q, want %q", got.Kind, prx.EventKindReview)
+		if got.Kind != types.EventKindReview {
+			t.Errorf("Kind = %q, want %q", got.Kind, types.EventKindReview)
 		}
 	})
 }
@@ -1083,11 +1083,11 @@ func TestConvertMergeRequest(t *testing.T) {
 	if len(result.Commits) != 2 {
 		t.Errorf("len(Commits) = %d, want 2", len(result.Commits))
 	}
-	if result.Reviewers["approver1"] != prx.ReviewStateApproved {
+	if result.Reviewers["approver1"] != types.ReviewStateApproved {
 		t.Errorf("Reviewers[approver1] = %v, want approved", result.Reviewers["approver1"])
 	}
-	if result.TestState != prx.TestStatePassing {
-		t.Errorf("TestState = %q, want %q", result.TestState, prx.TestStatePassing)
+	if result.TestState != types.TestStatePassing {
+		t.Errorf("TestState = %q, want %q", result.TestState, types.TestStatePassing)
 	}
 }
 

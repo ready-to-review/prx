@@ -3,6 +3,8 @@ package prx
 import (
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 // testCheckRun is a test-only type that mirrors the structure of GitHub check runs.
@@ -114,7 +116,7 @@ func TestCheckRunStatusDescriptions(t *testing.T) {
 				timestamp = tt.checkRun.StartedAt
 			}
 
-			event := Event{
+			event := types.Event{
 				Kind:      "check_run",
 				Timestamp: timestamp,
 				Actor:     "github",
@@ -147,7 +149,7 @@ func TestCheckRunStatusDescriptions(t *testing.T) {
 }
 
 func TestCalculateCheckSummaryWithDescriptions(t *testing.T) {
-	events := []Event{
+	events := []types.Event{
 		{
 			Kind:        "check_run",
 			Body:        "*control",
@@ -181,7 +183,7 @@ func TestCalculateCheckSummaryWithDescriptions(t *testing.T) {
 		"*control",
 	}
 
-	summary := CalculateCheckSummary(events, requiredChecks)
+	summary := types.CalculateCheckSummary(events, requiredChecks)
 
 	// Verify counts
 	if len(summary.Success) != 2 {
@@ -228,7 +230,7 @@ func TestDropshotPR1359Regression(t *testing.T) {
 	}
 
 	// Process into event
-	event := Event{
+	event := types.Event{
 		Kind:      "check_run",
 		Timestamp: checkRun.CompletedAt,
 		Actor:     "github",
@@ -255,8 +257,8 @@ func TestDropshotPR1359Regression(t *testing.T) {
 	}
 
 	// Also test that it appears correctly in the check summary
-	events := []Event{event}
-	summary := CalculateCheckSummary(events, []string{})
+	events := []types.Event{event}
+	summary := types.CalculateCheckSummary(events, []string{})
 
 	if desc, exists := summary.Failing["*control"]; !exists {
 		t.Error("Regression detected: *control not in failing statuses")

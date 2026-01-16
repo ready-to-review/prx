@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/codeGROOVE-dev/fido"
-	"github.com/codeGROOVE-dev/prx/pkg/prx"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 // cachedCheckRuns stores check run events with a timestamp for cache validation.
 type cachedCheckRuns struct {
 	CachedAt time.Time
-	Events   []prx.Event
+	Events   []types.Event
 }
 
 // Platform implements the prx.Platform interface for GitHub.
@@ -118,7 +118,7 @@ func (*Platform) Name() string {
 }
 
 // FetchPR retrieves a pull request with all events and metadata.
-func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
+func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
 	p.logger.InfoContext(ctx, "fetching pull request via GraphQL", "owner", owner, "repo", repo, "pr", number)
 
 	prData, err := p.fetchPullRequestCompleteViaGraphQL(ctx, owner, repo, number)
@@ -170,7 +170,7 @@ func (p *Platform) FetchPR(ctx context.Context, owner, repo string, number int, 
 }
 
 // fetchPullRequestCompleteViaGraphQL fetches all PR data in a single GraphQL query.
-func (p *Platform) fetchPullRequestCompleteViaGraphQL(ctx context.Context, owner, repo string, prNumber int) (*prx.PullRequestData, error) {
+func (p *Platform) fetchPullRequestCompleteViaGraphQL(ctx context.Context, owner, repo string, prNumber int) (*types.PullRequestData, error) {
 	data, err := p.executeGraphQL(ctx, owner, repo, prNumber)
 	if err != nil {
 		return nil, err
@@ -180,16 +180,16 @@ func (p *Platform) fetchPullRequestCompleteViaGraphQL(ctx context.Context, owner
 	events := p.convertGraphQLToEventsComplete(ctx, data, owner, repo)
 	requiredChecks := p.extractRequiredChecksFromGraphQL(data)
 
-	events = prx.FilterEvents(events)
+	events = types.FilterEvents(events)
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].Timestamp.Before(events[j].Timestamp)
 	})
-	prx.UpgradeWriteAccess(events)
+	types.UpgradeWriteAccess(events)
 
 	testState := p.calculateTestStateFromGraphQL(data)
-	prx.FinalizePullRequest(&pr, events, requiredChecks, testState)
+	types.FinalizePullRequest(&pr, events, requiredChecks, testState)
 
-	return &prx.PullRequestData{
+	return &types.PullRequestData{
 		PullRequest: pr,
 		Events:      events,
 	}, nil
@@ -255,11 +255,11 @@ func (p *Platform) executeGraphQL(ctx context.Context, owner, repo string, prNum
 }
 
 // convertGraphQLToPullRequest converts GraphQL data to PullRequest.
-func (p *Platform) convertGraphQLToPullRequest(ctx context.Context, data *graphQLPullRequestComplete, owner, repo string) prx.PullRequest {
-	pr := prx.PullRequest{
+func (p *Platform) convertGraphQLToPullRequest(ctx context.Context, data *graphQLPullRequestComplete, owner, repo string) types.PullRequest {
+	pr := types.PullRequest{
 		Number:       data.Number,
 		Title:        data.Title,
-		Body:         prx.Truncate(data.Body),
+		Body:         types.Truncate(data.Body),
 		Author:       data.Author.Login,
 		State:        strings.ToLower(data.State),
 		CreatedAt:    data.CreatedAt,
@@ -321,24 +321,24 @@ func (p *Platform) convertGraphQLToPullRequest(ctx context.Context, data *graphQ
 }
 
 // convertGraphQLToEventsComplete converts GraphQL data to Events.
-func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *graphQLPullRequestComplete, owner, repo string) []prx.Event {
-	var events []prx.Event
+func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *graphQLPullRequestComplete, owner, repo string) []types.Event {
+	var events []types.Event
 
-	events = append(events, prx.Event{
-		Kind:        prx.EventKindPROpened,
+	events = append(events, types.Event{
+		Kind:        types.EventKindPROpened,
 		Timestamp:   data.CreatedAt,
 		Actor:       data.Author.Login,
-		Body:        prx.Truncate(data.Body),
+		Body:        types.Truncate(data.Body),
 		Bot:         isBot(data.Author),
 		WriteAccess: p.writeAccessFromAssociation(ctx, owner, repo, data.Author.Login, data.AuthorAssociation),
 	})
 
 	for _, node := range data.Commits.Nodes {
-		event := prx.Event{
-			Kind:        prx.EventKindCommit,
+		event := types.Event{
+			Kind:        types.EventKindCommit,
 			Timestamp:   node.Commit.CommittedDate,
 			Body:        node.Commit.OID,
-			Description: prx.Truncate(node.Commit.Message),
+			Description: types.Truncate(node.Commit.Message),
 		}
 		if node.Commit.Author.User != nil {
 			event.Actor = node.Commit.Author.User.Login
@@ -358,13 +358,13 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 		if review.SubmittedAt != nil {
 			timestamp = *review.SubmittedAt
 		}
-		event := prx.Event{
-			Kind:        prx.EventKindReview,
+		event := types.Event{
+			Kind:        types.EventKindReview,
 			Timestamp:   timestamp,
 			Actor:       review.Author.Login,
-			Body:        prx.Truncate(review.Body),
+			Body:        types.Truncate(review.Body),
 			Outcome:     strings.ToLower(review.State),
-			Question:    prx.ContainsQuestion(review.Body),
+			Question:    types.ContainsQuestion(review.Body),
 			Bot:         isBot(review.Author),
 			WriteAccess: p.writeAccessFromAssociation(ctx, owner, repo, review.Author.Login, review.AuthorAssociation),
 		}
@@ -375,12 +375,12 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 		thread := &data.ReviewThreads.Nodes[i]
 		for j := range thread.Comments.Nodes {
 			comment := &thread.Comments.Nodes[j]
-			event := prx.Event{
-				Kind:        prx.EventKindReviewComment,
+			event := types.Event{
+				Kind:        types.EventKindReviewComment,
 				Timestamp:   comment.CreatedAt,
 				Actor:       comment.Author.Login,
-				Body:        prx.Truncate(comment.Body),
-				Question:    prx.ContainsQuestion(comment.Body),
+				Body:        types.Truncate(comment.Body),
+				Question:    types.ContainsQuestion(comment.Body),
 				Bot:         isBot(comment.Author),
 				WriteAccess: p.writeAccessFromAssociation(ctx, owner, repo, comment.Author.Login, comment.AuthorAssociation),
 				Outdated:    comment.Outdated,
@@ -390,12 +390,12 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 	}
 
 	for _, comment := range data.Comments.Nodes {
-		event := prx.Event{
-			Kind:        prx.EventKindComment,
+		event := types.Event{
+			Kind:        types.EventKindComment,
 			Timestamp:   comment.CreatedAt,
 			Actor:       comment.Author.Login,
-			Body:        prx.Truncate(comment.Body),
-			Question:    prx.ContainsQuestion(comment.Body),
+			Body:        types.Truncate(comment.Body),
+			Question:    types.ContainsQuestion(comment.Body),
 			Bot:         isBot(comment.Author),
 			WriteAccess: p.writeAccessFromAssociation(ctx, owner, repo, comment.Author.Login, comment.AuthorAssociation),
 		}
@@ -420,8 +420,8 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 				}
 
 				if node.StartedAt != nil {
-					events = append(events, prx.Event{
-						Kind:        prx.EventKindCheckRun,
+					events = append(events, types.Event{
+						Kind:        types.EventKindCheckRun,
 						Timestamp:   *node.StartedAt,
 						Body:        node.Name,
 						Outcome:     strings.ToLower(node.Status),
@@ -431,8 +431,8 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 				}
 
 				if node.CompletedAt != nil {
-					events = append(events, prx.Event{
-						Kind:        prx.EventKindCheckRun,
+					events = append(events, types.Event{
+						Kind:        types.EventKindCheckRun,
 						Timestamp:   *node.CompletedAt,
 						Body:        node.Name,
 						Outcome:     strings.ToLower(node.Conclusion),
@@ -445,8 +445,8 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 				if node.CreatedAt == nil {
 					continue
 				}
-				event := prx.Event{
-					Kind:        prx.EventKindStatusCheck,
+				event := types.Event{
+					Kind:        types.EventKindStatusCheck,
 					Timestamp:   *node.CreatedAt,
 					Outcome:     strings.ToLower(node.State),
 					Body:        node.Context,
@@ -471,13 +471,13 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 	}
 
 	if data.ClosedAt != nil && !data.IsDraft {
-		event := prx.Event{
-			Kind:      prx.EventKindPRClosed,
+		event := types.Event{
+			Kind:      types.EventKindPRClosed,
 			Timestamp: *data.ClosedAt,
 		}
 		if data.MergedBy != nil {
 			event.Actor = data.MergedBy.Login
-			event.Kind = prx.EventKindPRMerged
+			event.Kind = types.EventKindPRMerged
 			event.Bot = isBot(*data.MergedBy)
 		}
 		events = append(events, event)
@@ -489,7 +489,7 @@ func (p *Platform) convertGraphQLToEventsComplete(ctx context.Context, data *gra
 // parseGraphQLTimelineEvent parses a single timeline event.
 //
 //nolint:gocognit,maintidx,revive // High complexity justified - must handle all GitHub timeline event types
-func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]any, _, _ string) *prx.Event {
+func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]any, _, _ string) *types.Event {
 	typename, ok := item["__typename"].(string)
 	if !ok {
 		return nil
@@ -535,7 +535,7 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		return nil
 	}
 
-	event := &prx.Event{
+	event := &types.Event{
 		Timestamp: *createdAt,
 		Actor:     getActor(),
 		Bot:       isActorBot(),
@@ -543,7 +543,7 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 
 	switch typename {
 	case "AssignedEvent":
-		event.Kind = prx.EventKindAssigned
+		event.Kind = types.EventKindAssigned
 		if assignee, ok := item["assignee"].(map[string]any); ok {
 			if login, ok := assignee["login"].(string); ok {
 				event.Target = login
@@ -551,7 +551,7 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "UnassignedEvent":
-		event.Kind = prx.EventKindUnassigned
+		event.Kind = types.EventKindUnassigned
 		if assignee, ok := item["assignee"].(map[string]any); ok {
 			if login, ok := assignee["login"].(string); ok {
 				event.Target = login
@@ -559,7 +559,7 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "LabeledEvent":
-		event.Kind = prx.EventKindLabeled
+		event.Kind = types.EventKindLabeled
 		if label, ok := item["label"].(map[string]any); ok {
 			if name, ok := label["name"].(string); ok {
 				event.Target = name
@@ -567,7 +567,7 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "UnlabeledEvent":
-		event.Kind = prx.EventKindUnlabeled
+		event.Kind = types.EventKindUnlabeled
 		if label, ok := item["label"].(map[string]any); ok {
 			if name, ok := label["name"].(string); ok {
 				event.Target = name
@@ -575,19 +575,19 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "MilestonedEvent":
-		event.Kind = prx.EventKindMilestoned
+		event.Kind = types.EventKindMilestoned
 		if title, ok := item["milestoneTitle"].(string); ok {
 			event.Target = title
 		}
 
 	case "DemilestonedEvent":
-		event.Kind = prx.EventKindDemilestoned
+		event.Kind = types.EventKindDemilestoned
 		if title, ok := item["milestoneTitle"].(string); ok {
 			event.Target = title
 		}
 
 	case "ReviewRequestedEvent":
-		event.Kind = prx.EventKindReviewRequested
+		event.Kind = types.EventKindReviewRequested
 		if reviewer, ok := item["requestedReviewer"].(map[string]any); ok {
 			if login, ok := reviewer["login"].(string); ok {
 				event.Target = login
@@ -597,7 +597,7 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "ReviewRequestRemovedEvent":
-		event.Kind = prx.EventKindReviewRequestRemoved
+		event.Kind = types.EventKindReviewRequestRemoved
 		if reviewer, ok := item["requestedReviewer"].(map[string]any); ok {
 			if login, ok := reviewer["login"].(string); ok {
 				event.Target = login
@@ -607,53 +607,53 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "MentionedEvent":
-		event.Kind = prx.EventKindMentioned
+		event.Kind = types.EventKindMentioned
 		event.Body = "User was mentioned"
 
 	case "ReadyForReviewEvent":
-		event.Kind = prx.EventKindReadyForReview
+		event.Kind = types.EventKindReadyForReview
 
 	case "ConvertToDraftEvent":
-		event.Kind = prx.EventKindConvertToDraft
+		event.Kind = types.EventKindConvertToDraft
 
 	case "ClosedEvent":
-		event.Kind = prx.EventKindClosed
+		event.Kind = types.EventKindClosed
 
 	case "ReopenedEvent":
-		event.Kind = prx.EventKindReopened
+		event.Kind = types.EventKindReopened
 
 	case "MergedEvent":
-		event.Kind = prx.EventKindMerged
+		event.Kind = types.EventKindMerged
 
 	case "AutoMergeEnabledEvent":
-		event.Kind = prx.EventKindAutoMergeEnabled
+		event.Kind = types.EventKindAutoMergeEnabled
 
 	case "AutoMergeDisabledEvent":
-		event.Kind = prx.EventKindAutoMergeDisabled
+		event.Kind = types.EventKindAutoMergeDisabled
 
 	case "ReviewDismissedEvent":
-		event.Kind = prx.EventKindReviewDismissed
+		event.Kind = types.EventKindReviewDismissed
 		if msg, ok := item["dismissalMessage"].(string); ok {
 			event.Body = msg
 		}
 
 	case "BaseRefChangedEvent":
-		event.Kind = prx.EventKindBaseRefChanged
+		event.Kind = types.EventKindBaseRefChanged
 
 	case "BaseRefForcePushedEvent":
-		event.Kind = prx.EventKindBaseRefForcePushed
+		event.Kind = types.EventKindBaseRefForcePushed
 
 	case "HeadRefForcePushedEvent":
-		event.Kind = prx.EventKindHeadRefForcePushed
+		event.Kind = types.EventKindHeadRefForcePushed
 
 	case "HeadRefDeletedEvent":
-		event.Kind = prx.EventKindHeadRefDeleted
+		event.Kind = types.EventKindHeadRefDeleted
 
 	case "HeadRefRestoredEvent":
-		event.Kind = prx.EventKindHeadRefRestored
+		event.Kind = types.EventKindHeadRefRestored
 
 	case "RenamedTitleEvent":
-		event.Kind = prx.EventKindRenamedTitle
+		event.Kind = types.EventKindRenamedTitle
 		if prev, ok := item["previousTitle"].(string); ok {
 			if curr, ok := item["currentTitle"].(string); ok {
 				event.Body = fmt.Sprintf("Renamed from %q to %q", prev, curr)
@@ -661,58 +661,58 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 		}
 
 	case "LockedEvent":
-		event.Kind = prx.EventKindLocked
+		event.Kind = types.EventKindLocked
 
 	case "UnlockedEvent":
-		event.Kind = prx.EventKindUnlocked
+		event.Kind = types.EventKindUnlocked
 
 	case "AddedToMergeQueueEvent":
-		event.Kind = prx.EventKindAddedToMergeQueue
+		event.Kind = types.EventKindAddedToMergeQueue
 
 	case "RemovedFromMergeQueueEvent":
-		event.Kind = prx.EventKindRemovedFromMergeQueue
+		event.Kind = types.EventKindRemovedFromMergeQueue
 
 	case "AutomaticBaseChangeSucceededEvent":
-		event.Kind = prx.EventKindAutomaticBaseChangeSucceeded
+		event.Kind = types.EventKindAutomaticBaseChangeSucceeded
 
 	case "AutomaticBaseChangeFailedEvent":
-		event.Kind = prx.EventKindAutomaticBaseChangeFailed
+		event.Kind = types.EventKindAutomaticBaseChangeFailed
 
 	case "ConnectedEvent":
-		event.Kind = prx.EventKindConnected
+		event.Kind = types.EventKindConnected
 
 	case "DisconnectedEvent":
-		event.Kind = prx.EventKindDisconnected
+		event.Kind = types.EventKindDisconnected
 
 	case "CrossReferencedEvent":
-		event.Kind = prx.EventKindCrossReferenced
+		event.Kind = types.EventKindCrossReferenced
 
 	case "ReferencedEvent":
-		event.Kind = prx.EventKindReferenced
+		event.Kind = types.EventKindReferenced
 
 	case "SubscribedEvent":
-		event.Kind = prx.EventKindSubscribed
+		event.Kind = types.EventKindSubscribed
 
 	case "UnsubscribedEvent":
-		event.Kind = prx.EventKindUnsubscribed
+		event.Kind = types.EventKindUnsubscribed
 
 	case "DeployedEvent":
-		event.Kind = prx.EventKindDeployed
+		event.Kind = types.EventKindDeployed
 
 	case "DeploymentEnvironmentChangedEvent":
-		event.Kind = prx.EventKindDeploymentEnvironmentChanged
+		event.Kind = types.EventKindDeploymentEnvironmentChanged
 
 	case "PinnedEvent":
-		event.Kind = prx.EventKindPinned
+		event.Kind = types.EventKindPinned
 
 	case "UnpinnedEvent":
-		event.Kind = prx.EventKindUnpinned
+		event.Kind = types.EventKindUnpinned
 
 	case "TransferredEvent":
-		event.Kind = prx.EventKindTransferred
+		event.Kind = types.EventKindTransferred
 
 	case "UserBlockedEvent":
-		event.Kind = prx.EventKindUserBlocked
+		event.Kind = types.EventKindUserBlocked
 
 	default:
 		return nil
@@ -724,18 +724,18 @@ func (*Platform) parseGraphQLTimelineEvent(_ context.Context, item map[string]an
 // writeAccessFromAssociation calculates write access from association.
 func (p *Platform) writeAccessFromAssociation(ctx context.Context, owner, repo, user, association string) int {
 	if user == "" {
-		return prx.WriteAccessNA
+		return types.WriteAccessNA
 	}
 
 	switch association {
 	case "OWNER", "COLLABORATOR":
-		return prx.WriteAccessDefinitely
+		return types.WriteAccessDefinitely
 	case "MEMBER":
 		return p.checkCollaboratorPermission(ctx, owner, repo, user)
 	case "CONTRIBUTOR", "NONE", "FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER":
-		return prx.WriteAccessUnlikely
+		return types.WriteAccessUnlikely
 	default:
-		return prx.WriteAccessNA
+		return types.WriteAccessNA
 	}
 }
 
@@ -754,16 +754,16 @@ func (p *Platform) checkCollaboratorPermission(ctx context.Context, owner, repo,
 		return result, nil
 	})
 	if err != nil {
-		return prx.WriteAccessLikely
+		return types.WriteAccessLikely
 	}
 
 	switch collabs[user] {
 	case "admin", "maintain", "write":
-		return prx.WriteAccessDefinitely
+		return types.WriteAccessDefinitely
 	case "read", "triage", "none":
-		return prx.WriteAccessNo
+		return types.WriteAccessNo
 	default:
-		return prx.WriteAccessUnlikely
+		return types.WriteAccessUnlikely
 	}
 }
 
@@ -848,15 +848,15 @@ func truncateSHA(sha string) string {
 }
 
 // buildReviewersMap constructs a map of reviewer login to their review state.
-func buildReviewersMap(data *graphQLPullRequestComplete) map[string]prx.ReviewState {
-	reviewers := make(map[string]prx.ReviewState)
+func buildReviewersMap(data *graphQLPullRequestComplete) map[string]types.ReviewState {
+	reviewers := make(map[string]types.ReviewState)
 
 	for _, request := range data.ReviewRequests.Nodes {
 		reviewer := request.RequestedReviewer
 		if reviewer.Login != "" {
-			reviewers[reviewer.Login] = prx.ReviewStatePending
+			reviewers[reviewer.Login] = types.ReviewStatePending
 		} else if reviewer.Name != "" {
-			reviewers[reviewer.Name] = prx.ReviewStatePending
+			reviewers[reviewer.Name] = types.ReviewStatePending
 		}
 	}
 
@@ -866,14 +866,14 @@ func buildReviewersMap(data *graphQLPullRequestComplete) map[string]prx.ReviewSt
 			continue
 		}
 
-		var state prx.ReviewState
+		var state types.ReviewState
 		switch strings.ToUpper(review.State) {
 		case "APPROVED":
-			state = prx.ReviewStateApproved
+			state = types.ReviewStateApproved
 		case "CHANGES_REQUESTED":
-			state = prx.ReviewStateChangesRequested
+			state = types.ReviewStateChangesRequested
 		case "COMMENTED":
-			state = prx.ReviewStateCommented
+			state = types.ReviewStateCommented
 		default:
 			continue
 		}
@@ -916,7 +916,7 @@ func (p *Platform) fetchRulesetsREST(ctx context.Context, owner, repo string) ([
 }
 
 // fetchCheckRunsREST fetches check runs via REST API for a specific commit.
-func (p *Platform) fetchCheckRunsREST(ctx context.Context, owner, repo, sha string, refTime time.Time) ([]prx.Event, error) {
+func (p *Platform) fetchCheckRunsREST(ctx context.Context, owner, repo, sha string, refTime time.Time) ([]types.Event, error) {
 	if sha == "" {
 		return nil, nil
 	}
@@ -940,7 +940,7 @@ func (p *Platform) fetchCheckRunsREST(ctx context.Context, owner, repo, sha stri
 		return nil, fmt.Errorf("fetching check runs: %w", err)
 	}
 
-	var events []prx.Event
+	var events []types.Event
 	for _, run := range checkRuns.CheckRuns {
 		if run == nil {
 			continue
@@ -960,8 +960,8 @@ func (p *Platform) fetchCheckRunsREST(ctx context.Context, owner, repo, sha stri
 			continue
 		}
 
-		event := prx.Event{
-			Kind:      prx.EventKindCheckRun,
+		event := types.Event{
+			Kind:      types.EventKindCheckRun,
 			Timestamp: timestamp,
 			Actor:     "github",
 			Bot:       true,
@@ -995,7 +995,7 @@ func (p *Platform) fetchCheckRunsREST(ctx context.Context, owner, repo, sha stri
 }
 
 // fetchAllCheckRunsREST fetches check runs for all commits in the PR.
-func (p *Platform) fetchAllCheckRunsREST(ctx context.Context, owner, repo string, prData *prx.PullRequestData, refTime time.Time) []prx.Event {
+func (p *Platform) fetchAllCheckRunsREST(ctx context.Context, owner, repo string, prData *types.PullRequestData, refTime time.Time) []types.Event {
 	shas := make(map[string]bool)
 
 	if prData.PullRequest.HeadSHA != "" {
@@ -1004,12 +1004,12 @@ func (p *Platform) fetchAllCheckRunsREST(ctx context.Context, owner, repo string
 
 	for i := range prData.Events {
 		e := &prData.Events[i]
-		if e.Kind == prx.EventKindCommit && e.Body != "" {
+		if e.Kind == types.EventKindCommit && e.Body != "" {
 			shas[e.Body] = true
 		}
 	}
 
-	var all []prx.Event
+	var all []types.Event
 	seen := make(map[string]bool)
 
 	for sha := range shas {
@@ -1034,12 +1034,12 @@ func (p *Platform) fetchAllCheckRunsREST(ctx context.Context, owner, repo string
 }
 
 // existingRequiredChecks extracts required checks that were already identified.
-func (*Platform) existingRequiredChecks(prData *prx.PullRequestData) []string {
+func (*Platform) existingRequiredChecks(prData *types.PullRequestData) []string {
 	var required []string
 
 	for i := range prData.Events {
 		e := &prData.Events[i]
-		if e.Required && (e.Kind == prx.EventKindCheckRun || e.Kind == prx.EventKindStatusCheck) {
+		if e.Required && (e.Kind == types.EventKindCheckRun || e.Kind == types.EventKindStatusCheck) {
 			required = append(required, e.Body)
 		}
 	}
@@ -1056,7 +1056,7 @@ func (*Platform) existingRequiredChecks(prData *prx.PullRequestData) []string {
 }
 
 // recalculateCheckSummaryWithCheckRuns updates the check summary with REST-fetched check runs.
-func (p *Platform) recalculateCheckSummaryWithCheckRuns(_ context.Context, prData *prx.PullRequestData, _ []prx.Event) {
+func (p *Platform) recalculateCheckSummaryWithCheckRuns(_ context.Context, prData *types.PullRequestData, _ []types.Event) {
 	var required []string
 	if prData.PullRequest.CheckSummary != nil {
 		for chk := range prData.PullRequest.CheckSummary.Pending {
@@ -1064,27 +1064,27 @@ func (p *Platform) recalculateCheckSummaryWithCheckRuns(_ context.Context, prDat
 		}
 	}
 
-	prData.PullRequest.CheckSummary = prx.CalculateCheckSummary(prData.Events, required)
+	prData.PullRequest.CheckSummary = types.CalculateCheckSummary(prData.Events, required)
 	prData.PullRequest.TestState = p.calculateTestStateFromCheckSummary(prData.PullRequest.CheckSummary)
 }
 
 // calculateTestStateFromCheckSummary determines test state from a CheckSummary.
-func (*Platform) calculateTestStateFromCheckSummary(summary *prx.CheckSummary) string {
+func (*Platform) calculateTestStateFromCheckSummary(summary *types.CheckSummary) string {
 	if summary == nil {
-		return prx.TestStateNone
+		return types.TestStateNone
 	}
 
 	if len(summary.Failing) > 0 {
-		return prx.TestStateFailing
+		return types.TestStateFailing
 	}
 
 	if len(summary.Pending) > 0 {
-		return prx.TestStatePending
+		return types.TestStatePending
 	}
 
 	if len(summary.Success) > 0 {
-		return prx.TestStatePassing
+		return types.TestStatePassing
 	}
 
-	return prx.TestStateNone
+	return types.TestStateNone
 }

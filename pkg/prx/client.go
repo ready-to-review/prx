@@ -18,6 +18,7 @@ import (
 
 	"github.com/codeGROOVE-dev/fido"
 	"github.com/codeGROOVE-dev/fido/pkg/store/localfs"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 const (
@@ -29,13 +30,13 @@ const (
 
 // PRStore is the interface for PR cache storage backends.
 // This is an alias for fido.Store with the appropriate type parameters.
-type PRStore = fido.Store[string, PullRequestData]
+type PRStore = fido.Store[string, types.PullRequestData]
 
 // Client provides methods to fetch pull request events from various platforms.
 type Client struct {
-	platform Platform
+	platform types.Platform
 	logger   *slog.Logger
-	prCache  *fido.TieredCache[string, PullRequestData]
+	prCache  *fido.TieredCache[string, types.PullRequestData]
 }
 
 // Option is a function that configures a Client.
@@ -67,13 +68,13 @@ func WithCacheStore(store PRStore) Option {
 // For GitHub: NewClientWithPlatform(github.NewPlatform(token), opts...)
 // For GitLab: NewClientWithPlatform(gitlab.NewPlatform(token), opts...)
 // For Gitea:  NewClientWithPlatform(gitea.NewPlatform(token), opts...)
-func NewClient(platform Platform, opts ...Option) *Client {
+func NewClient(platform types.Platform, opts ...Option) *Client {
 	return NewClientWithPlatform(platform, opts...)
 }
 
 // NewClientWithPlatform creates a new Client with the given platform.
 // Use this to create clients for GitLab, Codeberg, or other platforms.
-func NewClientWithPlatform(platform Platform, opts ...Option) *Client {
+func NewClientWithPlatform(platform types.Platform, opts ...Option) *Client {
 	c := &Client{
 		platform: platform,
 		logger:   slog.Default(),
@@ -90,7 +91,7 @@ func NewClientWithPlatform(platform Platform, opts ...Option) *Client {
 	return c
 }
 
-func createDefaultCache(log *slog.Logger) *fido.TieredCache[string, PullRequestData] {
+func createDefaultCache(log *slog.Logger) *fido.TieredCache[string, types.PullRequestData] {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		dir = os.TempDir()
@@ -100,7 +101,7 @@ func createDefaultCache(log *slog.Logger) *fido.TieredCache[string, PullRequestD
 		log.Warn("failed to create cache directory, caching disabled", "error", err)
 		return nil
 	}
-	store, err := localfs.New[string, PullRequestData]("prx-pr", dir)
+	store, err := localfs.New[string, types.PullRequestData]("prx-pr", dir)
 	if err != nil {
 		log.Warn("failed to create cache store, caching disabled", "error", err)
 		return nil
@@ -114,7 +115,7 @@ func createDefaultCache(log *slog.Logger) *fido.TieredCache[string, PullRequestD
 }
 
 // PullRequest fetches a pull request with all its events and metadata.
-func (c *Client) PullRequest(ctx context.Context, owner, repo string, prNumber int) (*PullRequestData, error) {
+func (c *Client) PullRequest(ctx context.Context, owner, repo string, prNumber int) (*types.PullRequestData, error) {
 	return c.PullRequestWithReferenceTime(ctx, owner, repo, prNumber, time.Now())
 }
 
@@ -124,7 +125,7 @@ func (c *Client) PullRequestWithReferenceTime(
 	owner, repo string,
 	pr int,
 	refTime time.Time,
-) (*PullRequestData, error) {
+) (*types.PullRequestData, error) {
 	if c.prCache == nil {
 		return c.platform.FetchPR(ctx, owner, repo, pr, refTime)
 	}
@@ -150,10 +151,10 @@ func (c *Client) PullRequestWithReferenceTime(
 			"platform", c.platform.Name(), "owner", owner, "repo", repo, "pr", pr)
 	}
 
-	result, err := c.prCache.Fetch(ctx, key, func(ctx context.Context) (PullRequestData, error) {
+	result, err := c.prCache.Fetch(ctx, key, func(ctx context.Context) (types.PullRequestData, error) {
 		data, err := c.platform.FetchPR(ctx, owner, repo, pr, refTime)
 		if err != nil {
-			return PullRequestData{}, err
+			return types.PullRequestData{}, err
 		}
 		data.CachedAt = time.Now()
 		return *data, nil
@@ -182,7 +183,7 @@ func NewCacheStore(dir string) (PRStore, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("creating cache directory: %w", err)
 	}
-	store, err := localfs.New[string, PullRequestData]("prx-pr", dir)
+	store, err := localfs.New[string, types.PullRequestData]("prx-pr", dir)
 	if err != nil {
 		return nil, fmt.Errorf("creating PR cache store: %w", err)
 	}
@@ -204,4 +205,16 @@ func collaboratorsCacheKey(owner, repo string) string {
 // rulesetsCacheKey generates a cache key for rulesets data.
 func rulesetsCacheKey(owner, repo string) string {
 	return fmt.Sprintf("%s/%s", owner, repo)
+}
+
+// isHexString returns true if the string contains only hex characters.
+func isHexString(s string) bool {
+	for i := range s {
+		c := s[i]
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
+			continue
+		}
+		return false
+	}
+	return true
 }

@@ -3,6 +3,8 @@ package prx
 import (
 	"testing"
 	"time"
+
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 func TestUpgradeWriteAccess(t *testing.T) {
@@ -10,17 +12,17 @@ func TestUpgradeWriteAccess(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		events   []Event
+		events   []types.Event
 		expected map[string]int // actor -> expected write access
 	}{
 		{
 			name: "upgrade write access for user who merged PR",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "comment",
 					Timestamp:   now.Add(-2 * time.Hour),
 					Actor:       "reviewer1",
-					WriteAccess: WriteAccessLikely, // 1
+					WriteAccess: types.WriteAccessLikely, // 1
 				},
 				{
 					Kind:      "pr_merged",
@@ -29,17 +31,17 @@ func TestUpgradeWriteAccess(t *testing.T) {
 				},
 			},
 			expected: map[string]int{
-				"reviewer1": WriteAccessDefinitely, // Should be upgraded to 2
+				"reviewer1": types.WriteAccessDefinitely, // Should be upgraded to 2
 			},
 		},
 		{
 			name: "upgrade write access for user who labeled issue",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "review",
 					Timestamp:   now.Add(-3 * time.Hour),
 					Actor:       "maintainer",
-					WriteAccess: WriteAccessLikely, // 1
+					WriteAccess: types.WriteAccessLikely, // 1
 					Outcome:     "approved",
 				},
 				{
@@ -50,17 +52,17 @@ func TestUpgradeWriteAccess(t *testing.T) {
 				},
 			},
 			expected: map[string]int{
-				"maintainer": WriteAccessDefinitely, // Should be upgraded to 2
+				"maintainer": types.WriteAccessDefinitely, // Should be upgraded to 2
 			},
 		},
 		{
 			name: "don't upgrade if already definitely has write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "comment",
 					Timestamp:   now.Add(-2 * time.Hour),
 					Actor:       "owner",
-					WriteAccess: WriteAccessDefinitely, // Already 2
+					WriteAccess: types.WriteAccessDefinitely, // Already 2
 				},
 				{
 					Kind:      "pr_merged",
@@ -69,17 +71,17 @@ func TestUpgradeWriteAccess(t *testing.T) {
 				},
 			},
 			expected: map[string]int{
-				"owner": WriteAccessDefinitely, // Should remain 2
+				"owner": types.WriteAccessDefinitely, // Should remain 2
 			},
 		},
 		{
 			name: "don't upgrade if user has no write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "comment",
 					Timestamp:   now.Add(-2 * time.Hour),
 					Actor:       "contributor",
-					WriteAccess: WriteAccessUnlikely, // -1
+					WriteAccess: types.WriteAccessUnlikely, // -1
 				},
 				{
 					Kind:      "comment",
@@ -89,23 +91,23 @@ func TestUpgradeWriteAccess(t *testing.T) {
 				},
 			},
 			expected: map[string]int{
-				"contributor": WriteAccessUnlikely, // Should remain 0
+				"contributor": types.WriteAccessUnlikely, // Should remain 0
 			},
 		},
 		{
 			name: "upgrade multiple users based on different actions",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "comment",
 					Timestamp:   now.Add(-4 * time.Hour),
 					Actor:       "user1",
-					WriteAccess: WriteAccessLikely, // 1
+					WriteAccess: types.WriteAccessLikely, // 1
 				},
 				{
 					Kind:        "review",
 					Timestamp:   now.Add(-3 * time.Hour),
 					Actor:       "user2",
-					WriteAccess: WriteAccessLikely, // 1
+					WriteAccess: types.WriteAccessLikely, // 1
 					Outcome:     "approved",
 				},
 				{
@@ -121,18 +123,18 @@ func TestUpgradeWriteAccess(t *testing.T) {
 				},
 			},
 			expected: map[string]int{
-				"user1": WriteAccessDefinitely, // Should be upgraded to 2
-				"user2": WriteAccessDefinitely, // Should be upgraded to 2
+				"user1": types.WriteAccessDefinitely, // Should be upgraded to 2
+				"user2": types.WriteAccessDefinitely, // Should be upgraded to 2
 			},
 		},
 		{
 			name: "handle events with nil write access",
-			events: []Event{
+			events: []types.Event{
 				{
 					Kind:        "comment",
 					Timestamp:   now.Add(-2 * time.Hour),
 					Actor:       "user1",
-					WriteAccess: WriteAccessNA, // no write access info
+					WriteAccess: types.WriteAccessNA, // no write access info
 				},
 				{
 					Kind:      "labeled",
@@ -149,15 +151,15 @@ func TestUpgradeWriteAccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Make a copy of events to avoid modifying test data
-			events := make([]Event, len(tt.events))
+			events := make([]types.Event, len(tt.events))
 			copy(events, tt.events)
 
 			// Apply the upgrade function
-			UpgradeWriteAccess(events)
+			types.UpgradeWriteAccess(events)
 
 			// Check results - look for events with WriteAccess field
 			for _, event := range events {
-				if event.WriteAccess != WriteAccessNA {
+				if event.WriteAccess != types.WriteAccessNA {
 					if expectedAccess, ok := tt.expected[event.Actor]; ok {
 						if event.WriteAccess != expectedAccess {
 							t.Errorf("%s: Actor %s has write access %d, expected %d",

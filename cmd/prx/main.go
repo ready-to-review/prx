@@ -18,6 +18,7 @@ import (
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitea"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitlab"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 var (
@@ -59,7 +60,7 @@ func run() error {
 
 	prURL := flag.Arg(0)
 
-	parsed, err := prx.ParseURL(prURL)
+	parsed, err := types.ParseURL(prURL)
 	if err != nil {
 		return fmt.Errorf("invalid PR URL: %w", err)
 	}
@@ -74,7 +75,7 @@ func run() error {
 	token, err := resolver.Resolve(ctx, platform, parsed.Host)
 	// Authentication is optional for public repos on GitLab/Gitea/Codeberg
 	// Only GitHub strictly requires authentication for most API calls
-	tokenOptional := parsed.Platform != prx.PlatformGitHub
+	tokenOptional := parsed.Platform != types.PlatformGitHub
 
 	if err != nil && !tokenOptional {
 		return fmt.Errorf("authentication failed: %w", err)
@@ -89,13 +90,13 @@ func run() error {
 	}
 
 	// Create platform-specific client
-	var prxPlatform prx.Platform
+	var prxPlatform types.Platform
 	switch parsed.Platform {
-	case prx.PlatformGitHub:
+	case types.PlatformGitHub:
 		prxPlatform = github.NewPlatform(tokenValue)
-	case prx.PlatformGitLab:
+	case types.PlatformGitLab:
 		prxPlatform = gitlab.NewPlatform(tokenValue, gitlab.WithBaseURL("https://"+parsed.Host))
-	case prx.PlatformCodeberg:
+	case types.PlatformCodeberg:
 		prxPlatform = gitea.NewCodebergPlatform(tokenValue)
 	default:
 		// Self-hosted Gitea
@@ -108,7 +109,7 @@ func run() error {
 		opts = append(opts, prx.WithLogger(slog.Default()))
 	}
 	if *noCache {
-		opts = append(opts, prx.WithCacheStore(null.New[string, prx.PullRequestData]()))
+		opts = append(opts, prx.WithCacheStore(null.New[string, types.PullRequestData]()))
 	}
 
 	client := prx.NewClientWithPlatform(prxPlatform, opts...)
