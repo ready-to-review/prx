@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 // TestAutoMergeEventIntegration tests that we properly parse auto_merge_enabled
@@ -19,7 +19,7 @@ func TestAutoMergeEventIntegration(t *testing.T) {
 		t.Fatalf("Failed to read test data: %v", err)
 	}
 
-	var prData types.PullRequestData
+	var prData prx.PullRequestData
 	if err := json.Unmarshal(data, &prData); err != nil {
 		t.Fatalf("Failed to unmarshal test data: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestAutoMergeEventIntegration(t *testing.T) {
 	}
 
 	// Find the auto_merge_enabled event
-	var autoMergeEvent *types.Event
+	var autoMergeEvent *prx.Event
 	for i := range prData.Events {
 		if prData.Events[i].Kind == "auto_merge_enabled" {
 			autoMergeEvent = &prData.Events[i]

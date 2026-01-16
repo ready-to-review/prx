@@ -18,7 +18,6 @@ import (
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitea"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitlab"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
 var (
@@ -60,7 +59,7 @@ func run() error {
 
 	prURL := flag.Arg(0)
 
-	parsed, err := types.ParseURL(prURL)
+	parsed, err := prx.ParseURL(prURL)
 	if err != nil {
 		return fmt.Errorf("invalid PR URL: %w", err)
 	}
@@ -75,7 +74,7 @@ func run() error {
 	token, err := resolver.Resolve(ctx, platform, parsed.Host)
 	// Authentication is optional for public repos on GitLab/Gitea/Codeberg
 	// Only GitHub strictly requires authentication for most API calls
-	tokenOptional := parsed.Platform != types.PlatformGitHub
+	tokenOptional := parsed.Platform != prx.PlatformGitHub
 
 	if err != nil && !tokenOptional {
 		return fmt.Errorf("authentication failed: %w", err)
@@ -90,13 +89,13 @@ func run() error {
 	}
 
 	// Create platform-specific client
-	var prxPlatform types.Platform
+	var prxPlatform prx.Platform
 	switch parsed.Platform {
-	case types.PlatformGitHub:
+	case prx.PlatformGitHub:
 		prxPlatform = github.NewPlatform(tokenValue)
-	case types.PlatformGitLab:
+	case prx.PlatformGitLab:
 		prxPlatform = gitlab.NewPlatform(tokenValue, gitlab.WithBaseURL("https://"+parsed.Host))
-	case types.PlatformCodeberg:
+	case prx.PlatformCodeberg:
 		prxPlatform = gitea.NewCodebergPlatform(tokenValue)
 	default:
 		// Self-hosted Gitea
@@ -109,10 +108,10 @@ func run() error {
 		opts = append(opts, prx.WithLogger(slog.Default()))
 	}
 	if *noCache {
-		opts = append(opts, prx.WithCacheStore(null.New[string, types.PullRequestData]()))
+		opts = append(opts, prx.WithCacheStore(null.New[string, prx.PullRequestData]()))
 	}
 
-	client := prx.NewClientWithPlatform(prxPlatform, opts...)
+	client := prx.NewClient(prxPlatform, opts...)
 	data, err := client.PullRequestWithReferenceTime(ctx, parsed.Owner, parsed.Repo, parsed.Number, referenceTime)
 	if err != nil {
 		return fmt.Errorf("failed to fetch PR data: %w", err)

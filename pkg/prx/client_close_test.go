@@ -13,7 +13,7 @@ func TestClientClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache store: %v", err)
 	}
-	client := prx.NewClientWithPlatform(github.NewTestPlatform("test-token", ""), prx.WithCacheStore(store))
+	client := prx.NewClient(github.NewTestPlatform("test-token", ""), prx.WithCacheStore(store))
 
 	// Close should not error
 	if err := client.Close(); err != nil {

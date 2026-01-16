@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx/fetch"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/pr"
 )
 
 func Example() {
 	// The simplest way: just pass a URL
 	// Authentication is automatically resolved from environment or CLI tools
 	ctx := context.Background()
-	data, err := fetch.PullRequest(ctx, "https://github.com/owner/repo/pull/123")
+	data, err := pr.Fetch(ctx, "https://github.com/owner/repo/pull/123")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,35 +37,35 @@ func ExamplePullRequest() {
 	ctx := context.Background()
 
 	// Works with GitHub
-	data, err := fetch.PullRequest(ctx, "https://github.com/owner/repo/pull/123")
+	data, err := pr.Fetch(ctx, "https://github.com/owner/repo/pull/123")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("GitHub PR #%d\n", data.PullRequest.Number)
 
 	// Works with GitLab
-	data, err = fetch.PullRequest(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
+	data, err = pr.Fetch(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("GitLab MR #%d\n", data.PullRequest.Number)
 
 	// Works with Codeberg
-	data, err = fetch.PullRequest(ctx, "https://codeberg.org/owner/repo/pulls/789")
+	data, err = pr.Fetch(ctx, "https://codeberg.org/owner/repo/pulls/789")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Codeberg PR #%d\n", data.PullRequest.Number)
 
 	// Works with any Gitea instance
-	data, err = fetch.PullRequest(ctx, "https://gitea.example.com/owner/repo/pulls/100")
+	data, err = pr.Fetch(ctx, "https://gitea.example.com/owner/repo/pulls/100")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Gitea PR #%d\n", data.PullRequest.Number)
 
 	// URL fragments and query parameters are automatically stripped
-	data, err = fetch.PullRequest(ctx, "https://github.com/owner/repo/pull/123?tab=checks#issuecomment-456")
+	data, err = pr.Fetch(ctx, "https://github.com/owner/repo/pull/123?tab=checks#issuecomment-456")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func ExampleClient_PullRequest() {
 	ctx := context.Background()
 
 	// Fetch using the simple API
-	data, err := fetch.PullRequest(ctx, "https://github.com/golang/go/pull/123")
+	data, err := pr.Fetch(ctx, "https://github.com/golang/go/pull/123")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -10,29 +10,28 @@ import (
 	"time"
 
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
-// mockPlatform implements types.Platform for testing
+// mockPlatform implements prx.Platform for testing
 type mockPlatform struct {
 	name      string
-	fetchFunc func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error)
+	fetchFunc func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error)
 }
 
 func (m *mockPlatform) Name() string {
 	return m.name
 }
 
-func (m *mockPlatform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
+func (m *mockPlatform) FetchPR(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
 	if m.fetchFunc != nil {
 		return m.fetchFunc(ctx, owner, repo, number, refTime)
 	}
-	return &types.PullRequestData{
-		PullRequest: types.PullRequest{
+	return &prx.PullRequestData{
+		PullRequest: prx.PullRequest{
 			Number: number,
 			Author: "test",
 		},
-		Events: []types.Event{},
+		Events: []prx.Event{},
 	}, nil
 }
 
@@ -98,7 +97,7 @@ func TestNewCacheStore_Errors(t *testing.T) {
 func TestClose_NilCache(t *testing.T) {
 	platform := &mockPlatform{name: "test"}
 	// Create client without cache store
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 	// Force nil cache by not setting one
 	err := client.Close()
 	if err != nil {
@@ -110,19 +109,19 @@ func TestClose_NilCache(t *testing.T) {
 func TestPullRequestWithReferenceTime_NilCache(t *testing.T) {
 	platform := &mockPlatform{
 		name: "test",
-		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
-			return &types.PullRequestData{
-				PullRequest: types.PullRequest{
+		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
+			return &prx.PullRequestData{
+				PullRequest: prx.PullRequest{
 					Number: number,
 					Author: owner,
 				},
-				Events: []types.Event{},
+				Events: []prx.Event{},
 			}, nil
 		},
 	}
 
 	// Create client with no cache (will use nil cache path)
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 	defer func() {
 		if err := client.Close(); err != nil {
 			t.Errorf("Close failed: %v", err)
@@ -143,13 +142,13 @@ func TestPullRequestWithReferenceTime_NilCache(t *testing.T) {
 func TestPullRequestWithReferenceTime_CacheGetError(t *testing.T) {
 	platform := &mockPlatform{
 		name: "test",
-		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
-			return &types.PullRequestData{
-				PullRequest: types.PullRequest{
+		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
+			return &prx.PullRequestData{
+				PullRequest: prx.PullRequest{
 					Number: number,
 					Author: "test",
 				},
-				Events:   []types.Event{},
+				Events:   []prx.Event{},
 				CachedAt: time.Now(),
 			}, nil
 		},
@@ -163,7 +162,7 @@ func TestPullRequestWithReferenceTime_CacheGetError(t *testing.T) {
 
 	// Create client with cache
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	client := prx.NewClientWithPlatform(platform,
+	client := prx.NewClient(platform,
 		prx.WithCacheStore(store),
 		prx.WithLogger(logger),
 	)
@@ -196,7 +195,7 @@ func TestPullRequestWithReferenceTime_FetchError(t *testing.T) {
 	expectedErr := errors.New("fetch failed")
 	platform := &mockPlatform{
 		name: "test",
-		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
+		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
 			return nil, expectedErr
 		},
 	}
@@ -207,7 +206,7 @@ func TestPullRequestWithReferenceTime_FetchError(t *testing.T) {
 		t.Fatalf("NewCacheStore failed: %v", err)
 	}
 
-	client := prx.NewClientWithPlatform(platform, prx.WithCacheStore(store))
+	client := prx.NewClient(platform, prx.WithCacheStore(store))
 	defer func() {
 		if err := client.Close(); err != nil {
 			t.Errorf("Close failed: %v", err)
@@ -229,14 +228,14 @@ func TestPullRequestWithReferenceTime_ExpiredCache(t *testing.T) {
 	callCount := 0
 	platform := &mockPlatform{
 		name: "test",
-		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*types.PullRequestData, error) {
+		fetchFunc: func(ctx context.Context, owner, repo string, number int, refTime time.Time) (*prx.PullRequestData, error) {
 			callCount++
-			return &types.PullRequestData{
-				PullRequest: types.PullRequest{
+			return &prx.PullRequestData{
+				PullRequest: prx.PullRequest{
 					Number: number,
 					Author: "test",
 				},
-				Events:   []types.Event{},
+				Events:   []prx.Event{},
 				CachedAt: time.Now(),
 			}, nil
 		},
@@ -249,7 +248,7 @@ func TestPullRequestWithReferenceTime_ExpiredCache(t *testing.T) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	client := prx.NewClientWithPlatform(platform,
+	client := prx.NewClient(platform,
 		prx.WithCacheStore(store),
 		prx.WithLogger(logger),
 	)
@@ -300,7 +299,7 @@ func TestWithCacheStore_CreateError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 
 	// This should not panic even if cache creation has issues
-	client := prx.NewClientWithPlatform(platform,
+	client := prx.NewClient(platform,
 		prx.WithCacheStore(store),
 		prx.WithLogger(logger),
 	)
@@ -327,7 +326,7 @@ func TestCreateDefaultCache(t *testing.T) {
 	platform := &mockPlatform{name: "test"}
 
 	// Create client without explicit cache store - should create default cache
-	client := prx.NewClientWithPlatform(platform)
+	client := prx.NewClient(platform)
 	defer func() {
 		if err := client.Close(); err != nil {
 			t.Errorf("Close failed: %v", err)
@@ -350,7 +349,7 @@ func TestClientOptions(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	t.Run("with logger only", func(t *testing.T) {
-		client := prx.NewClientWithPlatform(platform, prx.WithLogger(logger))
+		client := prx.NewClient(platform, prx.WithLogger(logger))
 		defer func() {
 			if err := client.Close(); err != nil {
 				t.Errorf("Close failed: %v", err)
@@ -374,7 +373,7 @@ func TestClientOptions(t *testing.T) {
 			t.Fatalf("NewCacheStore failed: %v", err)
 		}
 
-		client := prx.NewClientWithPlatform(platform,
+		client := prx.NewClient(platform,
 			prx.WithCacheStore(store),
 			prx.WithLogger(logger),
 		)
@@ -395,7 +394,7 @@ func TestClientOptions(t *testing.T) {
 	})
 
 	t.Run("no options", func(t *testing.T) {
-		client := prx.NewClientWithPlatform(platform)
+		client := prx.NewClient(platform)
 		defer func() {
 			if err := client.Close(); err != nil {
 				t.Errorf("Close failed: %v", err)

@@ -490,3 +490,177 @@ func TestResolver_ResolveGitea_TeaConfig(t *testing.T) {
 		t.Errorf("Source = %v, want %v", token.Source, TokenSourceConfig)
 	}
 }
+
+func TestResolver_ResolveGitHub_NoToken(t *testing.T) {
+	// Clear all env vars
+	os.Unsetenv("GITHUB_TOKEN")
+	os.Unsetenv("GH_TOKEN")
+
+	// Set PATH to empty to ensure gh CLI is not available
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", "")
+
+	resolver := NewResolver()
+	_, err := resolver.ResolveGitHub(context.Background())
+	if err == nil {
+		t.Error("Expected error when no GitHub token available")
+	}
+}
+
+func TestResolver_ResolveGitLab_NoToken(t *testing.T) {
+	// Clear all env vars
+	os.Unsetenv("GITLAB_TOKEN")
+	os.Unsetenv("GL_TOKEN")
+
+	// Set PATH to empty to ensure glab CLI is not available
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", "")
+
+	resolver := NewResolver()
+	_, err := resolver.ResolveGitLab(context.Background(), "")
+	if err == nil {
+		t.Error("Expected error when no GitLab token available")
+	}
+}
+
+func TestResolver_ResolveGitHub_EmptyEnvVar(t *testing.T) {
+	// Set env var to empty string
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+
+	// Set PATH to empty to ensure gh CLI is not available
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", "")
+
+	resolver := NewResolver()
+	_, err := resolver.ResolveGitHub(context.Background())
+	if err == nil {
+		t.Error("Expected error when GitHub token env var is empty")
+	}
+}
+
+func TestResolver_ResolveGitLab_EmptyEnvVar(t *testing.T) {
+	// Set env var to empty string
+	t.Setenv("GITLAB_TOKEN", "")
+	t.Setenv("GL_TOKEN", "")
+
+	// Set PATH to empty to ensure glab CLI is not available
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", "")
+
+	resolver := NewResolver()
+	_, err := resolver.ResolveGitLab(context.Background(), "gitlab.com")
+	if err == nil {
+		t.Error("Expected error when GitLab token env var is empty")
+	}
+}
+
+func TestResolver_ResolveGitea_EmptyEnvVar(t *testing.T) {
+	// Set env vars to empty strings
+	t.Setenv("CODEBERG_TOKEN", "")
+	t.Setenv("GITEA_TOKEN", "")
+
+	resolver := NewResolver()
+	_, err := resolver.ResolveGitea(context.Background(), "codeberg.org")
+	if err == nil {
+		t.Error("Expected error when Gitea token env var is empty")
+	}
+}
+
+func TestResolver_ResolveGitLab_CLISuccess(t *testing.T) {
+	// Clear env vars to force CLI path
+	os.Unsetenv("GITLAB_TOKEN")
+	os.Unsetenv("GL_TOKEN")
+
+	// Create a mock glab command that returns a token
+	tempDir := t.TempDir()
+	glabScript := filepath.Join(tempDir, "glab")
+	scriptContent := `#!/bin/sh
+echo "glpat_cli_token"
+`
+	if err := os.WriteFile(glabScript, []byte(scriptContent), 0o755); err != nil {
+		t.Fatalf("Failed to create mock glab script: %v", err)
+	}
+
+	// Prepend our temp dir to PATH
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", tempDir+":"+oldPath)
+
+	resolver := NewResolver()
+	token, err := resolver.ResolveGitLab(context.Background(), "gitlab.com")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
+
+	if token.Value != "glpat_cli_token" {
+		t.Errorf("Token = %q, want %q", token.Value, "glpat_cli_token")
+	}
+	if token.Source != TokenSourceCLI {
+		t.Errorf("Source = %v, want %v", token.Source, TokenSourceCLI)
+	}
+}
+
+func TestResolver_ResolveGitHub_CLISuccess(t *testing.T) {
+	// Clear env vars to force CLI path
+	os.Unsetenv("GITHUB_TOKEN")
+	os.Unsetenv("GH_TOKEN")
+
+	// Create a mock gh command that returns a token
+	tempDir := t.TempDir()
+	ghScript := filepath.Join(tempDir, "gh")
+	scriptContent := `#!/bin/sh
+echo "ghp_cli_token"
+`
+	if err := os.WriteFile(ghScript, []byte(scriptContent), 0o755); err != nil {
+		t.Fatalf("Failed to create mock gh script: %v", err)
+	}
+
+	// Prepend our temp dir to PATH
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", tempDir+":"+oldPath)
+
+	resolver := NewResolver()
+	token, err := resolver.ResolveGitHub(context.Background())
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
+
+	if token.Value != "ghp_cli_token" {
+		t.Errorf("Token = %q, want %q", token.Value, "ghp_cli_token")
+	}
+	if token.Source != TokenSourceCLI {
+		t.Errorf("Source = %v, want %v", token.Source, TokenSourceCLI)
+	}
+}
+
+func TestResolver_ResolveGitLab_CLIEmptyToken(t *testing.T) {
+	// Clear env vars to force CLI path
+	os.Unsetenv("GITLAB_TOKEN")
+	os.Unsetenv("GL_TOKEN")
+
+	// Create a mock glab command that returns empty
+	tempDir := t.TempDir()
+	glabScript := filepath.Join(tempDir, "glab")
+	scriptContent := `#!/bin/sh
+echo ""
+`
+	if err := os.WriteFile(glabScript, []byte(scriptContent), 0o755); err != nil {
+		t.Fatalf("Failed to create mock glab script: %v", err)
+	}
+
+	// Prepend our temp dir to PATH
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", tempDir+":"+oldPath)
+
+	resolver := NewResolver()
+	_, err := resolver.ResolveGitLab(context.Background(), "gitlab.com")
+	if err == nil {
+		t.Error("Expected error when glab returns empty token")
+	}
+}

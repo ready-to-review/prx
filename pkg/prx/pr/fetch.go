@@ -1,6 +1,6 @@
-// Package fetch provides convenience functions for fetching pull requests
+// Package pr provides convenience functions for fetching pull requests
 // with automatic platform detection and authentication resolution.
-package fetch
+package pr
 
 import (
 	"context"
@@ -12,18 +12,17 @@ import (
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitea"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitlab"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
 )
 
-// PullRequest automatically detects the platform from a PR/MR URL, resolves authentication,
+// Fetch automatically detects the platform from a PR/MR URL, resolves authentication,
 // and fetches the pull request data. This is the simplest way to use prx.
 //
 // Example:
 //
-//	data, err := fetch.PullRequest(ctx, "https://github.com/owner/repo/pull/123")
-//	data, err := fetch.PullRequest(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
-//	data, err := fetch.PullRequest(ctx, "https://codeberg.org/owner/repo/pulls/789")
-//	data, err := fetch.PullRequest(ctx, "https://gitea.example.com/owner/repo/pulls/100")
+//	data, err := pr.Fetch(ctx, "https://github.com/owner/repo/pull/123")
+//	data, err := pr.Fetch(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
+//	data, err := pr.Fetch(ctx, "https://codeberg.org/owner/repo/pulls/789")
+//	data, err := pr.Fetch(ctx, "https://gitea.example.com/owner/repo/pulls/100")
 //
 // The function will:
 //   - Parse the URL to detect platform, owner, repo, and PR number
@@ -39,10 +38,10 @@ import (
 // URL fragments (#...) and query parameters (?...) are automatically stripped.
 // Unknown hosts default to Gitea unless the URL indicates GitHub or GitLab.
 //
-// Use WithOptions to pass additional client configuration options.
-func PullRequest(ctx context.Context, url string, opts ...prx.Option) (*types.PullRequestData, error) {
+// Pass additional client configuration options as needed.
+func Fetch(ctx context.Context, url string, opts ...prx.Option) (*prx.PullRequestData, error) {
 	// Parse URL to get platform, owner, repo, PR number
-	parsed, err := types.ParseURL(url)
+	parsed, err := prx.ParseURL(url)
 	if err != nil {
 		return nil, fmt.Errorf("parsing URL: %w", err)
 	}
@@ -56,13 +55,13 @@ func PullRequest(ctx context.Context, url string, opts ...prx.Option) (*types.Pu
 	}
 
 	// Create platform-specific client
-	var platform types.Platform
+	var platform prx.Platform
 	switch parsed.Platform {
-	case types.PlatformGitHub:
+	case prx.PlatformGitHub:
 		platform = github.NewPlatform(token.Value)
-	case types.PlatformGitLab:
+	case prx.PlatformGitLab:
 		platform = gitlab.NewPlatform(token.Value, gitlab.WithBaseURL("https://"+parsed.Host))
-	case types.PlatformCodeberg:
+	case prx.PlatformCodeberg:
 		platform = gitea.NewCodebergPlatform(token.Value)
 	default:
 		// Default to Gitea for unknown platforms
@@ -70,7 +69,7 @@ func PullRequest(ctx context.Context, url string, opts ...prx.Option) (*types.Pu
 	}
 
 	// Create client and fetch PR
-	client := prx.NewClientWithPlatform(platform, opts...)
+	client := prx.NewClient(platform, opts...)
 	defer func() {
 		if closeErr := client.Close(); closeErr != nil {
 			slog.WarnContext(ctx, "failed to close client", "error", closeErr)

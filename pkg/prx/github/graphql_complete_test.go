@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/codeGROOVE-dev/fido"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/types"
+	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
 func TestIsBot(t *testing.T) {
@@ -274,7 +274,7 @@ func TestConvertGraphQLReviewCommentsWithOutdated(t *testing.T) {
 	events := platform.convertGraphQLToEventsComplete(ctx, data, "testowner", "testrepo")
 
 	// Filter to only review_comment events
-	var reviewComments []types.Event
+	var reviewComments []prx.Event
 	for _, event := range events {
 		if event.Kind == "review_comment" {
 			reviewComments = append(reviewComments, event)
