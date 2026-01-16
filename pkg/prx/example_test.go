@@ -4,24 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
-	"github.com/codeGROOVE-dev/prx/pkg/prx"
-	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/fetch"
 )
 
 func Example() {
-	// Create a client with your GitHub token
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		log.Fatal("GITHUB_TOKEN environment variable not set")
-	}
-
-	client := prx.NewClientWithPlatform(github.NewPlatform(token))
-
-	// Fetch events for a pull request
+	// The simplest way: just pass a URL
+	// Authentication is automatically resolved from environment or CLI tools
 	ctx := context.Background()
-	data, err := client.PullRequest(ctx, "owner", "repo", 123)
+	data, err := fetch.Fetch(ctx, "https://github.com/owner/repo/pull/123")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,14 +33,52 @@ func Example() {
 	}
 }
 
-func ExampleClient_PullRequest() {
-	// Create a client with custom logger
-	token := os.Getenv("GITHUB_TOKEN")
-	client := prx.NewClientWithPlatform(github.NewPlatform(token))
-
-	// Fetch all events for PR #123
+func ExampleFetch() {
 	ctx := context.Background()
-	data, err := client.PullRequest(ctx, "golang", "go", 123)
+
+	// Works with GitHub
+	data, err := fetch.Fetch(ctx, "https://github.com/owner/repo/pull/123")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("GitHub PR #%d\n", data.PullRequest.Number)
+
+	// Works with GitLab
+	data, err = fetch.Fetch(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("GitLab MR #%d\n", data.PullRequest.Number)
+
+	// Works with Codeberg
+	data, err = fetch.Fetch(ctx, "https://codeberg.org/owner/repo/pulls/789")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Codeberg PR #%d\n", data.PullRequest.Number)
+
+	// Works with any Gitea instance
+	data, err = fetch.Fetch(ctx, "https://gitea.example.com/owner/repo/pulls/100")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Gitea PR #%d\n", data.PullRequest.Number)
+
+	// URL fragments and query parameters are automatically stripped
+	data, err = fetch.Fetch(ctx, "https://github.com/owner/repo/pull/123?tab=checks#issuecomment-456")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("PR #%d (cleaned URL)\n", data.PullRequest.Number)
+}
+
+func ExampleClient_PullRequest() {
+	// For advanced use cases where you need to fetch multiple PRs from the same platform,
+	// you can still use the client-based API
+	ctx := context.Background()
+
+	// Fetch using the simple API
+	data, err := fetch.Fetch(ctx, "https://github.com/golang/go/pull/123")
 	if err != nil {
 		log.Fatal(err)
 	}

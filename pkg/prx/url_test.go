@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+//nolint:maintidx // Table-driven test with many security test cases
 func TestParseURL(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -107,12 +108,100 @@ func TestParseURL(t *testing.T) {
 			},
 		},
 
+		// Generic Gitea URLs
+		{
+			name:  "generic gitea URL",
+			input: "https://gitea.example.com/owner/repo/pulls/123",
+			want: &ParsedURL{
+				Platform: "gitea",
+				Host:     "gitea.example.com",
+				Owner:    "owner",
+				Repo:     "repo",
+				Number:   123,
+			},
+		},
+		{
+			name:  "unknown host defaults to gitea",
+			input: "https://code.mycompany.com/team/project/pulls/456",
+			want: &ParsedURL{
+				Platform: "gitea",
+				Host:     "code.mycompany.com",
+				Owner:    "team",
+				Repo:     "project",
+				Number:   456,
+			},
+		},
+
+		// URLs with fragments and query parameters
+		{
+			name:  "github URL with fragment",
+			input: "https://github.com/owner/repo/pull/123#issuecomment-456",
+			want: &ParsedURL{
+				Platform: PlatformGitHub,
+				Host:     "github.com",
+				Owner:    "owner",
+				Repo:     "repo",
+				Number:   123,
+			},
+		},
+		{
+			name:  "github URL with query params",
+			input: "https://github.com/owner/repo/pull/123?foo=bar&baz=qux",
+			want: &ParsedURL{
+				Platform: PlatformGitHub,
+				Host:     "github.com",
+				Owner:    "owner",
+				Repo:     "repo",
+				Number:   123,
+			},
+		},
+		{
+			name:  "gitlab URL with fragment and query",
+			input: "https://gitlab.com/owner/repo/-/merge_requests/456?tab=notes#note_789",
+			want: &ParsedURL{
+				Platform: PlatformGitLab,
+				Host:     "gitlab.com",
+				Owner:    "owner",
+				Repo:     "repo",
+				Number:   456,
+			},
+		},
+		{
+			name:  "gitea URL with query params",
+			input: "https://gitea.example.com/owner/repo/pulls/100?state=open",
+			want: &ParsedURL{
+				Platform: "gitea",
+				Host:     "gitea.example.com",
+				Owner:    "owner",
+				Repo:     "repo",
+				Number:   100,
+			},
+		},
+
 		// Error cases
 		{
 			name:     "empty input",
 			input:    "",
 			wantErr:  true,
 			errMatch: "empty URL",
+		},
+		{
+			name:     "injection attempt with newline in host",
+			input:    "https://github.com\n.evil.com/owner/repo/pull/123",
+			wantErr:  true,
+			errMatch: "invalid GitHub PR URL",
+		},
+		{
+			name:     "injection attempt with @ in host",
+			input:    "https://attacker@github.com/owner/repo/pull/123",
+			wantErr:  true,
+			errMatch: "invalid GitHub PR URL",
+		},
+		{
+			name:     "injection attempt with special chars in owner",
+			input:    "https://github.com/owner\x00/repo/pull/123",
+			wantErr:  true,
+			errMatch: "invalid GitHub PR URL",
 		},
 		{
 			name:     "whitespace only",
@@ -200,6 +289,33 @@ func TestDetectPlatform(t *testing.T) {
 			got := DetectPlatform(tt.host)
 			if got != tt.want {
 				t.Errorf("DetectPlatform(%q) = %q, want %q", tt.host, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectPlatformFromHost(t *testing.T) {
+	tests := []struct {
+		host string
+		want string
+	}{
+		{"github.com", PlatformGitHub},
+		{"GITHUB.COM", PlatformGitHub},
+		{"api.github.com", PlatformGitHub},
+		{"gitlab.com", PlatformGitLab},
+		{"gitlab.example.com", PlatformGitLab},
+		{"my-gitlab.internal", PlatformGitLab},
+		{"codeberg.org", PlatformCodeberg},
+		{"example.com", "gitea"},       // Unknown defaults to gitea
+		{"bitbucket.org", "gitea"},     // Unknown defaults to gitea
+		{"gitea.example.com", "gitea"}, // Unknown defaults to gitea
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			got := detectPlatformFromHost(tt.host)
+			if got != tt.want {
+				t.Errorf("detectPlatformFromHost(%q) = %q, want %q", tt.host, got, tt.want)
 			}
 		})
 	}

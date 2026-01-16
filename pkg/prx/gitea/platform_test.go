@@ -12,6 +12,14 @@ import (
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
 )
 
+// Test helper function
+func firstLine(s string) string {
+	if idx := strings.IndexByte(s, '\n'); idx >= 0 {
+		return s[:idx]
+	}
+	return s
+}
+
 func TestPlatform_Name(t *testing.T) {
 	tests := []struct {
 		name    string

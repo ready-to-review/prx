@@ -741,7 +741,7 @@ func (p *Platform) writeAccessFromAssociation(ctx context.Context, owner, repo, 
 
 // checkCollaboratorPermission checks if a user has write access.
 func (p *Platform) checkCollaboratorPermission(ctx context.Context, owner, repo, user string) int {
-	collabs, err := p.collaboratorsCache.Fetch(collaboratorsCacheKey(owner, repo), func() (map[string]string, error) {
+	collabs, err := p.collaboratorsCache.Fetch(fmt.Sprintf("%s/%s", owner, repo), func() (map[string]string, error) {
 		result, fetchErr := p.client.Collaborators(ctx, owner, repo)
 		if fetchErr != nil {
 			p.logger.WarnContext(ctx, "failed to fetch collaborators for write access check",
@@ -886,9 +886,7 @@ func buildReviewersMap(data *graphQLPullRequestComplete) map[string]prx.ReviewSt
 
 // fetchRulesetsREST fetches repository rulesets via REST API.
 func (p *Platform) fetchRulesetsREST(ctx context.Context, owner, repo string) ([]string, error) {
-	cacheKey := rulesetsCacheKey(owner, repo)
-
-	return p.rulesetsCache.Fetch(cacheKey, func() ([]string, error) {
+	return p.rulesetsCache.Fetch(fmt.Sprintf("%s/%s", owner, repo), func() ([]string, error) {
 		path := fmt.Sprintf("/repos/%s/%s/rulesets", owner, repo)
 		var rulesets []Ruleset
 
@@ -923,7 +921,7 @@ func (p *Platform) fetchCheckRunsREST(ctx context.Context, owner, repo, sha stri
 		return nil, nil
 	}
 
-	cacheKey := checkRunsCacheKey(owner, repo, sha)
+	cacheKey := fmt.Sprintf("%s/%s/%s", owner, repo, sha)
 
 	if cached, ok := p.checkRunsCache.Get(cacheKey); ok {
 		if !cached.CachedAt.Before(refTime) {
@@ -1089,19 +1087,4 @@ func (*Platform) calculateTestStateFromCheckSummary(summary *prx.CheckSummary) s
 	}
 
 	return prx.TestStateNone
-}
-
-// collaboratorsCacheKey generates a cache key for collaborators data.
-func collaboratorsCacheKey(owner, repo string) string {
-	return fmt.Sprintf("%s/%s", owner, repo)
-}
-
-// rulesetsCacheKey generates a cache key for rulesets data.
-func rulesetsCacheKey(owner, repo string) string {
-	return fmt.Sprintf("%s/%s", owner, repo)
-}
-
-// checkRunsCacheKey generates a cache key for check runs data.
-func checkRunsCacheKey(owner, repo, sha string) string {
-	return fmt.Sprintf("%s/%s/%s", owner, repo, sha)
 }
