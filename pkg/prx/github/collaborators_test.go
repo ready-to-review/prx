@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -9,6 +10,11 @@ import (
 
 	"github.com/codeGROOVE-dev/fido"
 )
+
+// Test helper for cache keys
+func collaboratorsCacheKey(owner, repo string) string {
+	return fmt.Sprintf("%s/%s", owner, repo)
+}
 
 // TestPermissionToWriteAccess tests permission level mapping
 func TestPermissionToWriteAccess(t *testing.T) {

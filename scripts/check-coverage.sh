@@ -17,8 +17,9 @@ fi
 echo "Analyzing package coverage..."
 echo ""
 
-# Get package-level coverage (not function-level), excluding cmd/ packages
-packages=$(go tool cover -func="$COVERAGE_FILE" | grep -E '^github.com' | awk '{print $1}' | sed 's#/[^/]*\.go:.*##' | sort -u | grep -v '/cmd/')
+# Get package-level coverage (not function-level), excluding cmd/ and fetch packages
+# fetch is a thin convenience wrapper - its logic is tested in underlying packages
+packages=$(go tool cover -func="$COVERAGE_FILE" | grep -E '^github.com' | awk '{print $1}' | sed 's#/[^/]*\.go:.*##' | sort -u | grep -v '/cmd/' | grep -v '/fetch$')
 
 failed_packages=""
 passed_packages=""
@@ -62,7 +63,7 @@ total_coverage=$(echo "$total_line" | awk '{print $3}' | sed 's/%//')
 
 echo ""
 echo "=================================================="
-echo "Total coverage: ${total_coverage}% (cmd/ packages excluded)"
+echo "Total coverage: ${total_coverage}% (cmd/ and fetch packages excluded)"
 echo "Threshold: ${THRESHOLD}%"
 echo "=================================================="
 

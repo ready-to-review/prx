@@ -25,17 +25,13 @@ const (
 )
 
 var (
-	// GitHub PR URL patterns.
-	githubPRPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]+)/pull/(\d+)`)
+	// URL patterns for different platforms.
+	githubPRPattern   = regexp.MustCompile(`^(?:https?://)?github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)`)
+	gitlabMRPattern   = regexp.MustCompile(`^(?:https?://)?([\w.-]+)/([\w.-]+)/([\w.-]+)/-/merge_requests/(\d+)`)
+	codebergPRPattern = regexp.MustCompile(`^(?:https?://)?codeberg\.org/([\w.-]+)/([\w.-]+)/pulls/(\d+)`)
+	giteaPRPattern    = regexp.MustCompile(`^(?:https?://)?([\w.-]+)/([\w.-]+)/([\w.-]+)/pulls/(\d+)`)
 
-	// GitLab MR URL patterns.
-	gitlabMRPattern = regexp.MustCompile(`^(?:https?://)?([^/]+)/([^/]+)/([^/]+)/-/merge_requests/(\d+)`)
-
-	// Codeberg (Gitea) PR URL patterns.
-	codebergPRPattern = regexp.MustCompile(`^(?:https?://)?codeberg\.org/([^/]+)/([^/]+)/pulls/(\d+)`)
-)
-
-var (
+	// Common parsing errors.
 	errEmptyURL         = errors.New("empty URL")
 	errInvalidGitHubURL = errors.New("invalid GitHub PR URL format, expected: github.com/owner/repo/pull/123")
 	errInvalidGitLabURL = errors.New("invalid GitLab MR URL format, expected: gitlab.com/owner/repo/-/merge_requests/123")
@@ -44,11 +40,21 @@ var (
 
 // ParseURL parses a pull request or merge request URL and returns its components.
 // It detects the platform based on the URL structure and host.
+// URL fragments (#...) and query parameters (?...) are automatically stripped.
 func ParseURL(input string) (*ParsedURL, error) {
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return nil, errEmptyURL
 	}
+
+	// Strip fragments and query parameters for permissive parsing
+	if idx := strings.Index(input, "#"); idx != -1 {
+		input = input[:idx]
+	}
+	if idx := strings.Index(input, "?"); idx != -1 {
+		input = input[:idx]
+	}
+	input = strings.TrimSpace(input)
 
 	// Try GitHub pattern first (most common).
 	if match := githubPRPattern.FindStringSubmatch(input); match != nil {
@@ -95,6 +101,27 @@ func ParseURL(input string) (*ParsedURL, error) {
 		}, nil
 	}
 
+	// Try generic Gitea pattern as fallback (default for unknown hosts).
+	if match := giteaPRPattern.FindStringSubmatch(input); match != nil {
+		number, err := strconv.Atoi(match[4])
+		if err != nil {
+			return nil, errors.New("invalid PR number in Gitea URL")
+		}
+
+		host := match[1]
+
+		// Detect platform from host if possible
+		platform := detectPlatformFromHost(host)
+
+		return &ParsedURL{
+			Platform: platform,
+			Host:     host,
+			Owner:    match[2],
+			Repo:     match[3],
+			Number:   number,
+		}, nil
+	}
+
 	// Try to provide a helpful error message.
 	if strings.Contains(input, "github.com") {
 		return nil, errInvalidGitHubURL
@@ -106,11 +133,30 @@ func ParseURL(input string) (*ParsedURL, error) {
 		return nil, errInvalidCodeberg
 	}
 
-	return nil, fmt.Errorf("unrecognized URL format: %s", input)
+	return nil, errors.New("unrecognized URL format")
+}
+
+// detectPlatformFromHost detects platform from hostname, defaulting to Gitea for unknown hosts.
+func detectPlatformFromHost(host string) string {
+	host = strings.ToLower(host)
+
+	switch {
+	case host == "github.com" || strings.HasSuffix(host, ".github.com"):
+		return PlatformGitHub
+	case host == "gitlab.com" || strings.Contains(host, "gitlab"):
+		return PlatformGitLab
+	case host == "codeberg.org":
+		return PlatformCodeberg
+	default:
+		// Default to Gitea for unknown hosts
+		return "gitea"
+	}
 }
 
 // DetectPlatform attempts to detect the platform from a host name.
 // Returns the platform identifier or empty string if unknown.
+//
+// Deprecated: Use detectPlatformFromHost instead, which defaults to Gitea.
 func DetectPlatform(host string) string {
 	host = strings.ToLower(host)
 
@@ -168,7 +214,7 @@ func NormalizeURL(input string) (string, error) {
 	case PlatformCodeberg:
 		return BuildCodebergURL(parsed.Owner, parsed.Repo, parsed.Number), nil
 	default:
-		return "", fmt.Errorf("unknown platform: %s", parsed.Platform)
+		return "", errors.New("unknown platform")
 	}
 }
 
@@ -203,11 +249,11 @@ func ParseShortRef(ref string) (*ShortRef, error) {
 	if idx := strings.Index(ref, "#"); idx != -1 {
 		parts := strings.Split(ref[:idx], "/")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid short reference format: %s", ref)
+			return nil, errors.New("invalid short reference format")
 		}
 		num, err := strconv.Atoi(ref[idx+1:])
 		if err != nil {
-			return nil, fmt.Errorf("invalid PR number in reference: %s", ref)
+			return nil, errors.New("invalid PR number in reference")
 		}
 		return &ShortRef{Owner: parts[0], Repo: parts[1], Number: num}, nil
 	}
@@ -217,12 +263,12 @@ func ParseShortRef(ref string) (*ShortRef, error) {
 	if len(parts) == 3 {
 		num, err := strconv.Atoi(parts[2])
 		if err != nil {
-			return nil, fmt.Errorf("invalid PR number in reference: %s", ref)
+			return nil, errors.New("invalid PR number in reference")
 		}
 		return &ShortRef{Owner: parts[0], Repo: parts[1], Number: num}, nil
 	}
 
-	return nil, fmt.Errorf("invalid short reference format: %s", ref)
+	return nil, errors.New("invalid short reference format")
 }
 
 // ParsedPR represents the result of parsing a PR reference in any format.

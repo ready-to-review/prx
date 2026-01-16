@@ -538,12 +538,16 @@ func convertToEvents(
 		if commits[i].Author != nil {
 			actor = commits[i].Author.Login
 		}
+		msg := commits[i].Commit.Message
+		if idx := strings.IndexByte(msg, '\n'); idx >= 0 {
+			msg = msg[:idx]
+		}
 		events = append(events, prx.Event{
 			Timestamp:   commits[i].Commit.Author.Date,
 			Kind:        prx.EventKindCommit,
 			Actor:       actor,
 			Body:        commits[i].SHA[:7],
-			Description: firstLine(commits[i].Commit.Message),
+			Description: msg,
 		})
 	}
 
@@ -728,10 +732,3 @@ func convertTimelineEvent(event *timelineEvent) *prx.Event {
 }
 
 // Helper functions.
-
-func firstLine(s string) string {
-	if idx := strings.IndexByte(s, '\n'); idx >= 0 {
-		return s[:idx]
-	}
-	return s
-}
