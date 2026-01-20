@@ -146,6 +146,281 @@ func TestParseGraphQLTimelineEventAutoMerge(t *testing.T) {
 	}
 }
 
+// TestParseGraphQLTimelineEvent_AllTypes tests parsing of all timeline event types
+func TestParseGraphQLTimelineEvent_AdditionalTypes(t *testing.T) {
+	p := &Platform{}
+	ctx := context.TODO()
+
+	tests := []struct {
+		name     string
+		item     map[string]any
+		wantKind string
+		wantNil  bool
+	}{
+		{
+			name: "LabeledEvent",
+			item: map[string]any{
+				"__typename": "LabeledEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "user1"},
+				"label": map[string]any{"name": "bug"},
+			},
+			wantKind: prx.EventKindLabeled,
+		},
+		{
+			name: "UnlabeledEvent",
+			item: map[string]any{
+				"__typename": "UnlabeledEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "user1"},
+				"label": map[string]any{"name": "wontfix"},
+			},
+			wantKind: prx.EventKindUnlabeled,
+		},
+		{
+			name: "AssignedEvent",
+			item: map[string]any{
+				"__typename": "AssignedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "assigner"},
+				"assignee": map[string]any{"login": "assignee1"},
+			},
+			wantKind: prx.EventKindAssigned,
+		},
+		{
+			name: "UnassignedEvent",
+			item: map[string]any{
+				"__typename": "UnassignedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "unassigner"},
+				"assignee": map[string]any{"login": "removed"},
+			},
+			wantKind: prx.EventKindUnassigned,
+		},
+		{
+			name: "MilestonedEvent",
+			item: map[string]any{
+				"__typename": "MilestonedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "pm"},
+				"milestoneTitle": "v1.0",
+			},
+			wantKind: prx.EventKindMilestoned,
+		},
+		{
+			name: "DemilestonedEvent",
+			item: map[string]any{
+				"__typename": "DemilestonedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "pm"},
+				"milestoneTitle": "v0.9",
+			},
+			wantKind: prx.EventKindDemilestoned,
+		},
+		{
+			name: "RenamedTitleEvent",
+			item: map[string]any{
+				"__typename": "RenamedTitleEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "editor"},
+				"previousTitle": "Old",
+				"currentTitle": "New",
+			},
+			wantKind: prx.EventKindRenamedTitle,
+		},
+		{
+			name: "LockedEvent",
+			item: map[string]any{
+				"__typename": "LockedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "mod"},
+			},
+			wantKind: prx.EventKindLocked,
+		},
+		{
+			name: "UnlockedEvent",
+			item: map[string]any{
+				"__typename": "UnlockedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "mod"},
+			},
+			wantKind: prx.EventKindUnlocked,
+		},
+		{
+			name: "HeadRefDeletedEvent",
+			item: map[string]any{
+				"__typename": "HeadRefDeletedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "maint"},
+			},
+			wantKind: prx.EventKindHeadRefDeleted,
+		},
+		{
+			name: "HeadRefForcePushedEvent",
+			item: map[string]any{
+				"__typename": "HeadRefForcePushedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "dev"},
+			},
+			wantKind: prx.EventKindHeadRefForcePushed,
+		},
+		{
+			name: "BaseRefForcePushedEvent",
+			item: map[string]any{
+				"__typename": "BaseRefForcePushedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "maint"},
+			},
+			wantKind: prx.EventKindBaseRefForcePushed,
+		},
+		{
+			name: "ReviewRequestedEvent",
+			item: map[string]any{
+				"__typename": "ReviewRequestedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "requester"},
+				"requestedReviewer": map[string]any{"login": "reviewer"},
+			},
+			wantKind: prx.EventKindReviewRequested,
+		},
+		{
+			name: "ReviewRequestRemovedEvent",
+			item: map[string]any{
+				"__typename": "ReviewRequestRemovedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "requester"},
+				"requestedReviewer": map[string]any{"login": "removed"},
+			},
+			wantKind: prx.EventKindReviewRequestRemoved,
+		},
+		{
+			name: "ReviewDismissedEvent",
+			item: map[string]any{
+				"__typename": "ReviewDismissedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "maint"},
+				"dismissalMessage": "No longer relevant",
+			},
+			wantKind: prx.EventKindReviewDismissed,
+		},
+		{
+			name: "ReadyForReviewEvent",
+			item: map[string]any{
+				"__typename": "ReadyForReviewEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "author"},
+			},
+			wantKind: prx.EventKindReadyForReview,
+		},
+		{
+			name: "ConvertToDraftEvent",
+			item: map[string]any{
+				"__typename": "ConvertToDraftEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "author"},
+			},
+			wantKind: prx.EventKindConvertToDraft,
+		},
+		{
+			name: "MergedEvent",
+			item: map[string]any{
+				"__typename": "MergedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "merger"},
+			},
+			wantKind: prx.EventKindMerged,
+		},
+		{
+			name: "ClosedEvent",
+			item: map[string]any{
+				"__typename": "ClosedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "closer"},
+			},
+			wantKind: prx.EventKindClosed,
+		},
+		{
+			name: "ReopenedEvent",
+			item: map[string]any{
+				"__typename": "ReopenedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "reopener"},
+			},
+			wantKind: prx.EventKindReopened,
+		},
+		{
+			name: "CrossReferencedEvent",
+			item: map[string]any{
+				"__typename": "CrossReferencedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "dev"},
+				"source": map[string]any{"__typename": "Issue"},
+			},
+			wantKind: prx.EventKindCrossReferenced,
+		},
+		{
+			name: "ReferencedEvent",
+			item: map[string]any{
+				"__typename": "ReferencedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "dev"},
+			},
+			wantKind: prx.EventKindReferenced,
+		},
+		{
+			name: "SubscribedEvent",
+			item: map[string]any{
+				"__typename": "SubscribedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "subscriber"},
+			},
+			wantKind: prx.EventKindSubscribed,
+		},
+		{
+			name: "UnsubscribedEvent",
+			item: map[string]any{
+				"__typename": "UnsubscribedEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+				"actor": map[string]any{"login": "unsubscriber"},
+			},
+			wantKind: prx.EventKindUnsubscribed,
+		},
+		{
+			name: "UnknownEventType",
+			item: map[string]any{
+				"__typename": "UnknownFutureEvent",
+				"createdAt":  "2024-01-01T10:00:00Z",
+			},
+			wantNil: true,
+		},
+		{
+			name: "MissingTypename",
+			item: map[string]any{
+				"createdAt": "2024-01-01T10:00:00Z",
+			},
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := p.parseGraphQLTimelineEvent(ctx, tt.item, "owner", "repo")
+			if tt.wantNil {
+				if event != nil {
+					t.Errorf("Expected nil event, got %+v", event)
+				}
+				return
+			}
+			if event == nil {
+				t.Fatal("Expected event, got nil")
+			}
+			if event.Kind != tt.wantKind {
+				t.Errorf("Kind = %q, want %q", event.Kind, tt.wantKind)
+			}
+		})
+	}
+}
+
 // TestParseGraphQLTimelineEventNewTypes tests parsing of all newly added event types
 func TestParseGraphQLTimelineEventNewTypes(t *testing.T) {
 	p := &Platform{}

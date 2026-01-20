@@ -10,6 +10,7 @@ import (
 	"github.com/codeGROOVE-dev/prx/pkg/prx"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/auth"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitea"
+	"github.com/codeGROOVE-dev/prx/pkg/prx/gitee"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/github"
 	"github.com/codeGROOVE-dev/prx/pkg/prx/gitlab"
 )
@@ -21,6 +22,7 @@ import (
 //
 //	data, err := pr.Fetch(ctx, "https://github.com/owner/repo/pull/123")
 //	data, err := pr.Fetch(ctx, "https://gitlab.com/owner/repo/-/merge_requests/456")
+//	data, err := pr.Fetch(ctx, "https://gitee.com/owner/repo/pulls/789")
 //	data, err := pr.Fetch(ctx, "https://codeberg.org/owner/repo/pulls/789")
 //	data, err := pr.Fetch(ctx, "https://gitea.example.com/owner/repo/pulls/100")
 //
@@ -33,6 +35,7 @@ import (
 // Authentication is resolved in this order:
 //   - GitHub: GITHUB_TOKEN, GH_TOKEN env vars, or 'gh auth token'
 //   - GitLab: GITLAB_TOKEN, GL_TOKEN env vars, or 'glab config get token'
+//   - Gitee: GITEE_TOKEN env var
 //   - Gitea/Codeberg: CODEBERG_TOKEN, GITEA_TOKEN env vars, tea config, or 'berg auth token'
 //
 // URL fragments (#...) and query parameters (?...) are automatically stripped.
@@ -59,6 +62,8 @@ func Fetch(ctx context.Context, url string, opts ...prx.Option) (*prx.PullReques
 	switch parsed.Platform {
 	case prx.PlatformGitHub:
 		platform = github.NewPlatform(token.Value)
+	case prx.PlatformGitee:
+		platform = gitee.NewPlatform(token.Value, gitee.WithBaseURL("https://"+parsed.Host))
 	case prx.PlatformGitLab:
 		platform = gitlab.NewPlatform(token.Value, gitlab.WithBaseURL("https://"+parsed.Host))
 	case prx.PlatformCodeberg:

@@ -22,12 +22,14 @@ const (
 	PlatformGitHub   = "github"
 	PlatformGitLab   = "gitlab"
 	PlatformCodeberg = "codeberg"
+	PlatformGitee    = "gitee"
 )
 
 var (
 	// URL patterns for different platforms.
 	githubPRPattern   = regexp.MustCompile(`^(?:https?://)?github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)`)
 	gitlabMRPattern   = regexp.MustCompile(`^(?:https?://)?([\w.-]+)/([\w.-]+)/([\w.-]+)/-/merge_requests/(\d+)`)
+	giteePRPattern    = regexp.MustCompile(`^(?:https?://)?gitee\.com/([\w.-]+)/([\w.-]+)/pulls/(\d+)`)
 	codebergPRPattern = regexp.MustCompile(`^(?:https?://)?codeberg\.org/([\w.-]+)/([\w.-]+)/pulls/(\d+)`)
 	giteaPRPattern    = regexp.MustCompile(`^(?:https?://)?([\w.-]+)/([\w.-]+)/([\w.-]+)/pulls/(\d+)`)
 
@@ -35,6 +37,7 @@ var (
 	errEmptyURL         = errors.New("empty URL")
 	errInvalidGitHubURL = errors.New("invalid GitHub PR URL format, expected: github.com/owner/repo/pull/123")
 	errInvalidGitLabURL = errors.New("invalid GitLab MR URL format, expected: gitlab.com/owner/repo/-/merge_requests/123")
+	errInvalidGitee     = errors.New("invalid Gitee PR URL format, expected: gitee.com/owner/repo/pulls/123")
 	errInvalidCodeberg  = errors.New("invalid Codeberg PR URL format, expected: codeberg.org/owner/repo/pulls/123")
 )
 
@@ -65,6 +68,21 @@ func ParseURL(input string) (*ParsedURL, error) {
 		return &ParsedURL{
 			Platform: PlatformGitHub,
 			Host:     "github.com",
+			Owner:    match[1],
+			Repo:     match[2],
+			Number:   number,
+		}, nil
+	}
+
+	// Try Gitee pattern.
+	if match := giteePRPattern.FindStringSubmatch(input); match != nil {
+		number, err := strconv.Atoi(match[3])
+		if err != nil {
+			return nil, errInvalidGitee
+		}
+		return &ParsedURL{
+			Platform: PlatformGitee,
+			Host:     "gitee.com",
 			Owner:    match[1],
 			Repo:     match[2],
 			Number:   number,
@@ -126,6 +144,9 @@ func ParseURL(input string) (*ParsedURL, error) {
 	if strings.Contains(input, "github.com") {
 		return nil, errInvalidGitHubURL
 	}
+	if strings.Contains(input, "gitee.com") {
+		return nil, errInvalidGitee
+	}
 	if strings.Contains(input, "gitlab") || strings.Contains(input, "merge_requests") {
 		return nil, errInvalidGitLabURL
 	}
@@ -143,6 +164,8 @@ func DetectPlatformFromHost(host string) string {
 	switch {
 	case host == "github.com" || strings.HasSuffix(host, ".github.com"):
 		return PlatformGitHub
+	case host == "gitee.com":
+		return PlatformGitee
 	case host == "gitlab.com" || strings.Contains(host, "gitlab"):
 		return PlatformGitLab
 	case host == "codeberg.org":
@@ -163,6 +186,8 @@ func DetectPlatform(host string) string {
 	switch {
 	case host == "github.com" || strings.HasSuffix(host, ".github.com"):
 		return PlatformGitHub
+	case host == "gitee.com":
+		return PlatformGitee
 	case host == "gitlab.com" || strings.Contains(host, "gitlab"):
 		return PlatformGitLab
 	case host == "codeberg.org":
@@ -175,6 +200,11 @@ func DetectPlatform(host string) string {
 // BuildGitHubURL constructs a GitHub PR URL from components.
 func BuildGitHubURL(owner, repo string, number int) string {
 	return fmt.Sprintf("https://github.com/%s/%s/pull/%d", owner, repo, number)
+}
+
+// BuildGiteeURL constructs a Gitee PR URL from components.
+func BuildGiteeURL(owner, repo string, number int) string {
+	return fmt.Sprintf("https://gitee.com/%s/%s/pulls/%d", owner, repo, number)
 }
 
 // BuildGitLabURL constructs a GitLab MR URL from components.
@@ -209,6 +239,8 @@ func NormalizeURL(input string) (string, error) {
 	switch parsed.Platform {
 	case PlatformGitHub:
 		return BuildGitHubURL(parsed.Owner, parsed.Repo, parsed.Number), nil
+	case PlatformGitee:
+		return BuildGiteeURL(parsed.Owner, parsed.Repo, parsed.Number), nil
 	case PlatformGitLab:
 		return BuildGitLabURL(parsed.Host, parsed.Owner, parsed.Repo, parsed.Number), nil
 	case PlatformCodeberg:

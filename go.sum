@@ -8,12 +8,12 @@ github.com/codeGROOVE-dev/fido/pkg/store/null v1.10.0 h1:3F6absPj3zUaPsK7ohTTlwO
 github.com/codeGROOVE-dev/fido/pkg/store/null v1.10.0/go.mod h1:mvPXZ0lHnaQuxkSozpmWf2ZKL5bzKe/IIGFLlcQH/F4=
 github.com/codeGROOVE-dev/retry v1.3.1 h1:BAkfDzs6FssxLCGWGgM97bb+6/8GTa40Cs147vXkJOg=
 github.com/codeGROOVE-dev/retry v1.3.1/go.mod h1:+b3huqYGY1+ZJyuCmR8nBVLjd3WJ7qAFss+sI4s6FSc=
-github.com/klauspost/compress v1.18.2 h1:iiPHWW0YrcFgpBYhsA6D1+fqHssJscY/Tm/y2Uqnapk=
-github.com/klauspost/compress v1.18.2/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
+github.com/klauspost/compress v1.18.3 h1:9PJRvfbmTabkOX8moIpXPbMMbYN60bWImDDU7L+/6zw=
+github.com/klauspost/compress v1.18.3/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
 github.com/pierrec/lz4/v4 v4.1.22 h1:cKFw6uJDK+/gfw5BcDL0JL5aBsAFdsIT18eRtLj7VIU=
 github.com/pierrec/lz4/v4 v4.1.22/go.mod h1:gZWDp/Ze/IJXGXf23ltt2EXimqmTUXEy0GFuRQyBid4=
-github.com/puzpuzpuz/xsync/v4 v4.2.0 h1:dlxm77dZj2c3rxq0/XNvvUKISAmovoXF4a4qM6Wvkr0=
-github.com/puzpuzpuz/xsync/v4 v4.2.0/go.mod h1:VJDmTCJMBt8igNxnkQd86r+8KUeN1quSfNKu5bLYFQo=
+github.com/puzpuzpuz/xsync/v4 v4.3.0 h1:w/bWkEJdYuRNYhHn5eXnIT8LzDM1O629X1I9MJSkD7Q=
+github.com/puzpuzpuz/xsync/v4 v4.3.0/go.mod h1:VJDmTCJMBt8igNxnkQd86r+8KUeN1quSfNKu5bLYFQo=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

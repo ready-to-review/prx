@@ -24,6 +24,7 @@ const (
 	PlatformGitLab   Platform = "gitlab"
 	PlatformCodeberg Platform = "codeberg"
 	PlatformGitea    Platform = "gitea"
+	PlatformGitee    Platform = "gitee"
 )
 
 // TokenSource describes where a token was obtained from.
@@ -146,6 +147,25 @@ func (r *Resolver) ResolveGitea(ctx context.Context, host string) (*Token, error
 	return nil, fmt.Errorf("%w: set GITEA_TOKEN or run 'tea login add'", ErrNoToken)
 }
 
+// ResolveGitee returns a Gitee token from GITEE_TOKEN env.
+func (*Resolver) ResolveGitee(_ context.Context, host string) (*Token, error) {
+	if host == "" {
+		host = "gitee.com"
+	}
+
+	// Check GITEE_TOKEN environment variable
+	if token := os.Getenv("GITEE_TOKEN"); token != "" {
+		token = strings.TrimSpace(token)
+		if token != "" {
+			return &Token{Value: token, Source: TokenSourceEnv, Host: host}, nil
+		}
+	}
+
+	// Gitee doesn't have a widely-used CLI tool like gh or glab,
+	// so we only check the environment variable
+	return nil, fmt.Errorf("%w: set GITEE_TOKEN environment variable", ErrNoToken)
+}
+
 // teaConfig represents the tea CLI config file structure.
 type teaConfig struct {
 	Logins []teaLogin `yaml:"logins"`
@@ -212,6 +232,8 @@ func (r *Resolver) Resolve(ctx context.Context, platform Platform, host string) 
 		return r.ResolveGitHub(ctx)
 	case PlatformGitLab:
 		return r.ResolveGitLab(ctx, host)
+	case PlatformGitee:
+		return r.ResolveGitee(ctx, host)
 	case PlatformCodeberg, PlatformGitea:
 		return r.ResolveGitea(ctx, host)
 	default:
@@ -240,6 +262,8 @@ func DetectPlatform(platform string) Platform {
 		return PlatformGitHub
 	case "gitlab":
 		return PlatformGitLab
+	case "gitee":
+		return PlatformGitee
 	case "codeberg":
 		return PlatformCodeberg
 	default:

@@ -716,3 +716,71 @@ func TestConvertPullRequest_StaleReview(t *testing.T) {
 		t.Errorf("Reviewers[reviewer3] = %v, want approved", result.Reviewers["reviewer3"])
 	}
 }
+
+func TestPlatform_FetchPR_CacheHit(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/pulls/100"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": 100,
+				"number": 100,
+				"title": "Cached PR",
+				"state": "open",
+				"draft": false,
+				"created_at": "2024-01-01T10:00:00Z",
+				"updated_at": "2024-01-01T12:00:00Z",
+				"user": {"id": 1, "login": "author"},
+				"head": {"ref": "feature", "sha": "cache123"},
+				"base": {"ref": "main", "sha": "base123"},
+				"labels": [],
+				"assignee": null,
+				"assignees": []
+			}`))
+		case strings.Contains(r.URL.Path, "/reviews"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[]`))
+		case strings.Contains(r.URL.Path, "/comments"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[]`))
+		case strings.Contains(r.URL.Path, "/commits"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[{"sha": "cache123", "commit": {"message": "test", "author": {"name": "author", "date": "2024-01-01T10:00:00Z"}}}]`))
+		case strings.Contains(r.URL.Path, "/timeline"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[]`))
+		}
+	}))
+	defer server.Close()
+
+	p := NewPlatform("test-token", WithBaseURL(server.URL))
+	ctx := context.Background()
+
+	// First request - cache miss
+	refTime := time.Date(2024, 1, 1, 11, 0, 0, 0, time.UTC)
+	_, err := p.FetchPR(ctx, "owner", "repo", 100, refTime)
+	if err != nil {
+		t.Fatalf("First FetchPR() error = %v", err)
+	}
+	firstRequestCount := requestCount
+
+	// Second request with same refTime - should hit cache
+	_, err = p.FetchPR(ctx, "owner", "repo", 100, refTime)
+	if err != nil {
+		t.Fatalf("Second FetchPR() error = %v", err)
+	}
+
+	// Verify cache was used (request count should not increase significantly)
+	// Note: PR fetch will still happen, but supplemental data should be cached
+	if requestCount <= firstRequestCount {
+		t.Errorf("Expected cache hit for supplemental data, requestCount = %d after first = %d", requestCount, firstRequestCount)
+	}
+	// After cache hit, we expect only 1 new request (for the PR itself), not 5
+	if requestCount > firstRequestCount+1 {
+		t.Errorf("Too many requests after cache hit: %d new requests, expected 1", requestCount-firstRequestCount)
+	}
+}

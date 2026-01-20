@@ -212,6 +212,20 @@ type Event struct {
 	Outdated    bool      `json:"outdated,omitempty"` // For review comments: indicates comment is on outdated code
 }
 
+// SearchResult is a lightweight PR reference returned from search queries.
+// Use FetchPR to get full details.
+//
+//nolint:govet // fieldalignment: Struct fields ordered for JSON clarity
+type SearchResult struct {
+	UpdatedAt time.Time `json:"updated_at"`
+	URL       string    `json:"url"`
+	Title     string    `json:"title"`
+	Author    string    `json:"author"`
+	State     string    `json:"state"` // "open", "closed"
+	Number    int       `json:"number"`
+	Draft     bool      `json:"draft"`
+}
+
 // FinalizePullRequest applies final calculations and consistency fixes.
 func FinalizePullRequest(pullRequest *PullRequest, events []Event, requiredChecks []string, testStateFromAPI string) {
 	pullRequest.TestState = testStateFromAPI
